@@ -23,6 +23,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 uint64 memsize(void);
+void set_ps_priority(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

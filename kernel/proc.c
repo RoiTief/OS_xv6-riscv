@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include <limits.h>
+#include <stddef.h>
 
 struct cpu cpus[NCPU];
 
@@ -102,6 +104,21 @@ allocpid()
   return pid;
 }
 
+unsigned long long findMinAccumulator()
+{
+	unsigned long long min = ULLONG_MAX;
+
+	for(struct proc* p = proc; p < &proc[NPROC]; p++ )
+	{
+    if((p->state == RUNNABLE || p->state == RUNNING) && p->accumulator < min) 
+		{
+			min = p->accumulator;
+		}
+	}
+	
+	return min == ULLONG_MAX ? 0 : min;	
+}
+
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -145,6 +162,10 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+	// Set priority and accumulator of new process
+	p->ps_priority = 5;
+	p->accumulator = findMinAccumulator();
 
   return p;
 }
@@ -437,6 +458,28 @@ wait(uint64 addr, uint64 msg)
   }
 }
 
+struct proc* find_min_proc()
+{
+	struct proc* min = NULL;
+
+	for(struct proc* p = proc ; p < &proc[NPROC]; p++) 
+	{
+		acquire(&p->lock);
+		if ((p->state == RUNNABLE) && (min == NULL || p->accumulator < min->accumulator))
+		{
+			if (min != NULL) release(&min->lock);
+			min = p;
+		}
+		else
+		{
+			release(&p->lock);
+		}
+	}
+
+	return min;
+}
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -455,21 +498,19 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+		if ((p = find_min_proc()))
+		{
+    	// Switch to chosen process.  It is the process's job
+    	// to release its lock and then reacquire it
+    	// before jumping back to us.
+    	p->state = RUNNING;
+    	c->proc = p;
+    	swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
+    	// Process is done running for now.
+    	// It should have changed its p->state before coming back.
+    	c->proc = 0;
+    	release(&p->lock);
     }
   }
 }
@@ -575,6 +616,7 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+				p->accumulator = findMinAccumulator();
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -683,4 +725,11 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Update the process' priority
+void
+set_ps_priority(int n)
+{
+	myproc()->ps_priority = n;
 }
