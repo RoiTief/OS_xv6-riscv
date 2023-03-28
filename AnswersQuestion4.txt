@@ -1,0 +1,4 @@
+1) The scheduler() is in kernel\proc.c
+2) It is endlessly iterating over the Procedures array, and take the first one that is in 'runnable'
+3) when a new process is created we first find in theק process array, a process with 'UNUSED' status, than we copy the PCB of the parent to the that PCB (exapא the process number, and parent), and change its status to 'runnable'
+4) from the user space it been first trap at trap.c->usertrap (probably using ecall) and then its call the appropriate system call which is  define in the kernal space
