@@ -10,5 +10,5 @@ int main()
 	printf("the size of the process now is : %d \nfreeing the pointer\n", memsize());
 	free(p); 
 	printf("the size of the process now is : %d\n", memsize());
-	exit(0);
+	exit(0, "");
 }
