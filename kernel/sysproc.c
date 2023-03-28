@@ -10,8 +10,10 @@ uint64
 sys_exit(void)
 {
   int n;
+  char exit_msg[32];
   argint(0, &n);
-  exit(n);
+  argstr(1, exit_msg, 32);
+  exit(n, exit_msg);
   return 0;  // not reached
 }
 
@@ -31,24 +33,26 @@ uint64
 sys_wait(void)
 {
   uint64 p;
+	uint64 msg;
   argaddr(0, &p);
-  return wait(p);
+  argaddr(1, &msg);
+  return wait(p, msg);
 }
 
-uint64
+	uint64
 sys_sbrk(void)
 {
-  uint64 addr;
-  int n;
+	uint64 addr;
+	int n;
 
-  argint(0, &n);
-  addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
-  return addr;
+	argint(0, &n);
+	addr = myproc()->sz;
+	if(growproc(n) < 0)
+		return -1;
+	return addr;
 }
 
-uint64
+	uint64
 sys_sleep(void)
 {
   int n;
@@ -58,11 +62,11 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(killed(myproc())){
-      release(&tickslock);
-      return -1;
-    }
-    sleep(&ticks, &tickslock);
+ 	if(killed(myproc())){
+  		release(&tickslock);
+  		return -1;
+  	}
+  	sleep(&ticks, &tickslock);
   }
   release(&tickslock);
   return 0;
@@ -79,7 +83,7 @@ sys_kill(void)
 
 // return how many clock tick interrupts have occurred
 // since start.
-uint64
+	uint64
 sys_uptime(void)
 {
   uint xticks;
@@ -93,5 +97,5 @@ sys_uptime(void)
 uint64
 sys_memsize(void)
 {
-	return myproc()->sz;
+  return myproc()->sz;
 }
