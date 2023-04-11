@@ -109,3 +109,48 @@ sys_set_ps_priority(void)
   set_ps_priority(n);
 	return 0;
 }
+
+uint64
+sys_set_cfs_priority(void)
+{
+	int n;
+
+	argint(0, &n);
+  set_cfs_priority(n);
+	return 0;
+}
+
+uint64
+sys_get_cfs_stats(void)
+{
+	int n;
+	uint64 data;
+
+	argint(0, &n);
+	argaddr(1, &data);
+  get_cfs_stats(n, (struct cfs_data*)data);
+	return 0;
+}
+
+struct spinlock printf_lk;
+
+uint64
+sys_printf_init(void){
+	initlock(&printf_lk, "uprintf");
+	return 0;
+}
+
+uint64
+sys_printf_acquire(void)
+{
+	acquire(&printf_lk);
+	return 0;
+}
+
+uint64
+sys_printf_release(void)
+{
+	release(&printf_lk);
+	return 0;
+}
+

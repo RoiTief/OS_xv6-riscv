@@ -1,4 +1,7 @@
 struct stat;
+enum cfs_priority;
+struct cfs_data;
+struct spinlock;
 
 // system calls
 int fork(void);
@@ -24,6 +27,11 @@ int sleep(int);
 int uptime(void);
 uint64 memsize(void);
 void set_ps_priority(int);
+int set_cfs_priority(int);
+void get_cfs_stats(int, struct cfs_data*);
+void printf_init(void);
+void printf_acquire(void);
+void printf_release(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -33,6 +41,7 @@ char* strchr(const char*, char c);
 int strcmp(const char*, const char*);
 void fprintf(int, const char*, ...);
 void printf(const char*, ...);
+void lockprintf(void);
 char* gets(char*, int max);
 uint strlen(const char*);
 void* memset(void*, int, uint);

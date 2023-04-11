@@ -22,3 +22,8 @@
 #define SYS_close  21
 #define SYS_memsize  22
 #define SYS_set_ps_priority  23
+#define SYS_set_cfs_priority  24
+#define SYS_get_cfs_stats  25
+#define SYS_printf_acquire  26
+#define SYS_printf_release  27
+#define SYS_printf_init  28

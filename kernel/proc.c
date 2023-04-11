@@ -337,6 +337,7 @@ fork(void)
 
   acquire(&wait_lock);
   np->parent = p;
+	np->cfs_data = p->cfs_data;
   release(&wait_lock);
 
   acquire(&np->lock);
@@ -458,7 +459,7 @@ wait(uint64 addr, uint64 msg)
   }
 }
 
-struct proc* find_min_proc()
+struct proc* ps_find_min_proc()
 {
 	struct proc* min = NULL;
 
@@ -469,6 +470,43 @@ struct proc* find_min_proc()
 		{
 			if (min != NULL) release(&min->lock);
 			min = p;
+		}
+		else
+		{
+			release(&p->lock);
+		}
+	}
+
+	return min;
+}
+
+unsigned long long calc_vruntime(struct proc* p){
+	unsigned long long vruntime = 0;
+	if (p->cfs_data.priority == HIGH)
+		vruntime = 0;
+	else if (p->cfs_data.priority == NORMAL)
+		vruntime = 10000000;
+	else if (p->cfs_data.priority == LOW)
+		vruntime = 125000000;
+	vruntime = vruntime * p->cfs_data.rtime;
+	vruntime = vruntime / (p->cfs_data.rtime + p->cfs_data.stime + p->cfs_data.retime);
+	return vruntime;
+}
+
+struct proc* cfs_find_min_proc()
+{
+	struct proc* min = NULL;
+	unsigned long long min_vruntime = 0;
+	unsigned long long curr_vruntime = 0;
+
+	for(struct proc* p = proc ; p < &proc[NPROC]; p++) 
+	{
+		acquire(&p->lock);
+		if ((p->state == RUNNABLE) && (min == NULL || (curr_vruntime = calc_vruntime(p)) < min_vruntime))
+		{
+			if (min != NULL) release(&min->lock);
+			min = p;
+			min_vruntime = curr_vruntime;
 		}
 		else
 		{
@@ -498,7 +536,7 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-		if ((p = find_min_proc()))
+		if ((p = cfs_find_min_proc()))
 		{
     	// Switch to chosen process.  It is the process's job
     	// to release its lock and then reacquire it
@@ -733,3 +771,50 @@ set_ps_priority(int n)
 {
 	myproc()->ps_priority = n;
 }
+
+void
+update_cfs(void){
+	for(struct proc *p = proc; p < &proc[NPROC]; p++){
+		acquire(&p->lock);
+    if(p->state == RUNNING)
+			p->cfs_data.rtime++;
+		else if(p->state == SLEEPING)
+			p->cfs_data.stime++;
+		else if(p->state == RUNNABLE)
+			p->cfs_data.retime++;
+		release(&p->lock);
+	}
+}
+
+int
+set_cfs_priority(int priority){
+	struct proc *p;
+	if(priority <0 || priority >2)
+		return -1;
+
+	p = myproc();
+	if(priority == 0)
+		p->cfs_data.priority = HIGH;
+
+	else if(priority ==1)
+		p->cfs_data.priority = NORMAL;
+
+	else if(priority ==2)
+		p->cfs_data.priority = LOW;
+
+	return 0;
+}
+
+void
+get_cfs_stats(int pid,struct cfs_data* data){
+				for(struct proc *p = proc; p < &proc[NPROC]; p++){
+								acquire(&p->lock);
+								if(p->pid == pid){
+												copyout(p->pagetable,(uint64) data,(char*) &p->cfs_data, sizeof(struct cfs_data));
+												release(&p->lock);
+												return;
+								}
+								release(&p->lock);
+				}
+}
+

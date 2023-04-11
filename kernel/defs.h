@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct cfs_data;
 
 // bio.c
 void            binit(void);
@@ -85,6 +86,8 @@ void            printfinit(void);
 int             cpuid(void);
 void            exit(int, char*);
 void            set_ps_priority(int);
+int             set_cfs_priority(int);
+void            get_cfs_stats(int, struct cfs_data*);
 int             fork(void);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
