@@ -43,3 +43,4 @@ entry("get_cfs_stats");
 entry("printf_init");
 entry("printf_acquire");
 entry("printf_release");
+entry("set_policy");

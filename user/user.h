@@ -28,6 +28,7 @@ int uptime(void);
 uint64 memsize(void);
 void set_ps_priority(int);
 int set_cfs_priority(int);
+int set_policy(int);
 void get_cfs_stats(int, struct cfs_data*);
 void printf_init(void);
 void printf_acquire(void);

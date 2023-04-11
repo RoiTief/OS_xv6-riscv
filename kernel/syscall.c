@@ -105,6 +105,7 @@ extern uint64 sys_memsize(void);
 extern uint64 sys_set_ps_priority(void);
 extern uint64 sys_set_cfs_priority(void);
 extern uint64 sys_get_cfs_stats(void);
+extern uint64 sys_set_policy(void);
 extern uint64 sys_printf_acquire(void);
 extern uint64 sys_printf_release(void);
 extern uint64 sys_printf_init(void);
@@ -140,6 +141,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_printf_acquire] sys_printf_acquire,
 [SYS_printf_release] sys_printf_release,
 [SYS_printf_init] sys_printf_init,
+[SYS_set_policy] sys_set_policy,
 };
 
 void

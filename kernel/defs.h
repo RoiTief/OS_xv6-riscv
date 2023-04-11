@@ -87,6 +87,7 @@ int             cpuid(void);
 void            exit(int, char*);
 void            set_ps_priority(int);
 int             set_cfs_priority(int);
+int             set_policy(int);
 void            get_cfs_stats(int, struct cfs_data*);
 int             fork(void);
 int             growproc(int);

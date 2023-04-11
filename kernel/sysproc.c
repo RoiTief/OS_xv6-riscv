@@ -116,8 +116,7 @@ sys_set_cfs_priority(void)
 	int n;
 
 	argint(0, &n);
-  set_cfs_priority(n);
-	return 0;
+  return set_cfs_priority(n);
 }
 
 uint64
@@ -154,3 +153,11 @@ sys_printf_release(void)
 	return 0;
 }
 
+uint64
+sys_set_policy(void)
+{
+	int n;
+
+	argint(0, &n);
+	return set_policy(n);
+}

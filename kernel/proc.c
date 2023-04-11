@@ -14,6 +14,7 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+int sched_policy = 0;
 int nextpid = 1;
 struct spinlock pid_lock;
 
@@ -483,11 +484,11 @@ struct proc* ps_find_min_proc()
 unsigned long long calc_vruntime(struct proc* p){
 	unsigned long long vruntime = 0;
 	if (p->cfs_data.priority == HIGH)
-		vruntime = 0;
+		vruntime = 75;
 	else if (p->cfs_data.priority == NORMAL)
-		vruntime = 10000000;
+		vruntime = 100;
 	else if (p->cfs_data.priority == LOW)
-		vruntime = 125000000;
+		vruntime = 125;
 	vruntime = vruntime * p->cfs_data.rtime;
 	vruntime = vruntime / (p->cfs_data.rtime + p->cfs_data.stime + p->cfs_data.retime);
 	return vruntime;
@@ -517,7 +518,6 @@ struct proc* cfs_find_min_proc()
 	return min;
 }
 
-
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -528,7 +528,7 @@ struct proc* cfs_find_min_proc()
 void
 scheduler(void)
 {
-  struct proc *p;
+  struct proc *p = NULL;
   struct cpu *c = mycpu();
   
   c->proc = 0;
@@ -536,7 +536,25 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-		if ((p = cfs_find_min_proc()))
+		//default
+		for(p = proc; sched_policy == 0 && p < &proc[NPROC]; p++) {
+			acquire(&p->lock);
+			if(p->state == RUNNABLE) {
+				// Switch to chosen process.  It is the process's job
+				// to release its lock and then reacquire it
+				// before jumping back to us.
+				p->state = RUNNING;
+				c->proc = p;
+				swtch(&c->context, &p->context);
+				
+				// Process is done running for now.
+				// It should have changed its p->state before coming back.
+				c->proc = 0;
+			}
+			release(&p->lock);
+		}
+
+		if (sched_policy != 0 && (p =	sched_policy == 1 ? ps_find_min_proc() : cfs_find_min_proc()))
 		{
     	// Switch to chosen process.  It is the process's job
     	// to release its lock and then reacquire it
@@ -818,3 +836,8 @@ get_cfs_stats(int pid,struct cfs_data* data){
 				}
 }
 
+int
+set_policy(int policy){
+	sched_policy = policy < 3 && policy >= 0 ? policy : sched_policy;
+	return sched_policy == policy ? 0 : -1;
+}

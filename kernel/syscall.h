@@ -27,3 +27,4 @@
 #define SYS_printf_acquire  26
 #define SYS_printf_release  27
 #define SYS_printf_init  28
+#define SYS_set_policy 29
