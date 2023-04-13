@@ -814,10 +814,10 @@ set_cfs_priority(int priority){
 	if(priority == 0)
 		p->cfs_data.priority = HIGH;
 
-	else if(priority ==1)
+	else if(priority  == 1)
 		p->cfs_data.priority = NORMAL;
 
-	else if(priority ==2)
+	else if(priority == 2)
 		p->cfs_data.priority = LOW;
 
 	return 0;

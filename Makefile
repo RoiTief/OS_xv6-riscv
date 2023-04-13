@@ -135,7 +135,6 @@ UPROGS=\
 	$U/_helloworld\
 	$U/_goodbye\
 	$U/_cfs\
-	$U/_cfs2\
 	$U/_memsize_test\
 	$U/_policy\
 
