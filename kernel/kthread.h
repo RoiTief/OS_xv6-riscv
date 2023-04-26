@@ -50,10 +50,55 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
+// Saved registers for kernel context switches.
+struct context {
+  uint64 ra;
+  uint64 sp;
+
+  // callee-saved
+  uint64 s0;
+  uint64 s1;
+  uint64 s2;
+  uint64 s3;
+  uint64 s4;
+  uint64 s5;
+  uint64 s6;
+  uint64 s7;
+  uint64 s8;
+  uint64 s9;
+  uint64 s10;
+  uint64 s11;
+};
+
+enum ktstate {K_UNUSED, K_USED, K_SLEEPING, K_RUNNABLE, K_RUNNING, K_ZOMBIE};
+
 struct kthread
 {
+	struct spinlock lock;
+	enum ktstate state;
+	void *chan;
+	int killed;
+	int xstatus;
+	int ktid;
+	struct proc *proc;
 
   uint64 kstack;                // Virtual address of kernel stack
 
   struct trapframe *trapframe;  // data page for trampoline.S
+
+	struct context context;
 };
+
+// Per-CPU state.
+struct cpu {
+  struct kthread *kthread;          // The process running on this cpu, or null.
+  struct context context;     // swtch() here to enter scheduler().
+  int noff;                   // Depth of push_off() nesting.
+  int intena;                 // Were interrupts enabled before push_off()?
+};
+
+extern struct cpu cpus[NCPU];
+
+struct kthread* allockthread(struct proc*);
+
+void freekthread(struct kthread*);
