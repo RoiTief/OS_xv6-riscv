@@ -1,6 +1,7 @@
-#include "uthread.u"
+#include "uthread.h"
 #include "uthread_queue.h"
 #include "user.h"
+
 struct uthread threads[MAX_UTHREADS];
 struct uthread *curr_thread;
 struct ut_queue high_queue;
@@ -12,9 +13,11 @@ int started = 0;
 struct uthread*
 find_next_thread(void)
 {	
-	next_thread = q_size(&high_queue) > 0 ? q_poll(&high_queue) : 
+	struct uthread *next_thread = 
+									q_size(&high_queue) > 0 ? q_poll(&high_queue) : 
 									q_size(&medium_queue) > 0 ? q_poll(&medium_queue) :
-									q_size(&low_queue) > 0 ? q_poll(&low_queue) : 0;
+									q_size(&low_queue) > 0 ? q_poll(&low_queue) : 
+									0;
 	
 	if (!next_thread)
 		exit(0);
@@ -23,11 +26,11 @@ find_next_thread(void)
 }
 
 void
-switch_thread(struct uthread* next_thread){
+switch_thread(){
 	struct uthread* next_thread = find_next_thread();
 	struct uthread* old_thread = curr_thread;
 	curr_thread = next_thread;
-	curr_thread->tstate = RUNNING;
+	curr_thread->state = RUNNING;
 	uswtch(&old_thread->context,&next_thread->context);
 }
 
@@ -46,11 +49,11 @@ uthread_create(void (*start_func)(), enum sched_priority priority)
 		return -1;
 
 	struct uthread* t;	
-	for (t = threads ; t->tstate != FREE; t++);
-	t->tstate = RUNNABLE;
-	t->priority = priority
-	t->context.ra = start_func;
-	t->context.sp = t->stack // this is char[]
+	for (t = threads ; t->state != FREE; t++);
+	t->state = RUNNABLE;
+	t->priority = priority;
+	t->context.ra = (uint64)start_func;
+	t->context.sp = (uint64)t->ustack; // this is char[]
 	thread_num++;
 	add_to_queue(t);
 	return 0;
@@ -58,15 +61,15 @@ uthread_create(void (*start_func)(), enum sched_priority priority)
 
 void 
 uthread_yield(){
-	curr->tstate = RUNNABLE;
-	add_to_queue(curr);
-	switch_threads(next);
+	curr_thread->state = RUNNABLE;
+	add_to_queue(curr_thread);
+	switch_thread();
 }
 
 void 
 uthread_exit(){
-	curr->tstate = FREE;
-	switch_threads(next);
+	curr_thread->state = FREE;
+	switch_thread();
 }
 
 int 
@@ -78,19 +81,19 @@ uthread_start_all(){
 	struct uthread *to_run = find_next_thread();
 	if (to_run)
 	{
-		to_run->tstate = RUNNING;
+		to_run->state = RUNNING;
 		uswtch(&c,&to_run->context);
 	}
 	return 0;
 }
 
 enum sched_priority uthread_set_priority(enum sched_priority priority){
-	enum sched_priority previous = curr-thread->priority;
-	curr-thread->priority =  priority;
+	enum sched_priority previous = curr_thread->priority;
+	curr_thread->priority =  priority;
 	return previous;
 }
 enum sched_priority uthread_get_priority(){
-	return curr-thread->priority;
+	return curr_thread->priority;
 }
 
 struct uthread* uthread_self(){

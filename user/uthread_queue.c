@@ -2,12 +2,6 @@
 #include "uthread.h"
 
 
-struct ut_queue
-{
-	struct uthread* queue[MAX_QUEUE_SIZE];
-	int size;
-}
-
 int 
 q_size(struct ut_queue *queue)
 {

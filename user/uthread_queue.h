@@ -1,8 +1,15 @@
-#define MAX_QUEUE_SIZE = 10
+#include <stddef.h>
+
+#define MAX_QUEUE_SIZE 10
 
 struct uthread;
 
-struct ut_queue;
+struct ut_queue
+{
+	struct uthread* queue[MAX_QUEUE_SIZE];
+	int size;
+};
+
 
 int q_size(struct ut_queue *queue);
 
