@@ -171,7 +171,6 @@ freeproc(struct proc *p)
   p->pid = 0;
   p->parent = 0;
   p->name[0] = 0;
-  p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
@@ -329,6 +328,7 @@ fork(void)
 
   acquire(&np->lock);
 	acquire(&np->kthread[0].lock);
+	np->state = USED;
 	np->kthread[0].state = K_RUNNABLE;
 	release(&np->kthread[0].lock);
   release(&np->lock);
@@ -504,17 +504,17 @@ void
 sched(void)
 {
   int intena;
-  struct proc *p = myproc();
+  struct kthread *kt = mykthread();
 
-  if(!holding(&p->lock))
-    panic("sched p->lock");
+  if(!holding(&kt->lock))
+    panic("sched kt->lock");
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(intr_get())
     panic("sched interruptible");
 
   intena = mycpu()->intena;
-  swtch(&p->context, &mycpu()->context);
+  swtch(&kt->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
 
@@ -569,18 +569,18 @@ wakeup(void *chan)
   struct kthread *kt;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
-      acquire(&p->lock);
-			for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) 
+		for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) 
+		{
+    	if(kt != mykthread())
 			{
 				acquire(&kt->lock);
-      	if(kt->state == K_SLEEPING && kt->chan == chan) {
-       		kt->state = K_RUNNABLE;
-      	}
+				if (kt->state == K_SLEEPING && kt->chan == chan) 
+				{
+    	 		kt->state = K_RUNNABLE;
+				}
 				release(&kt->lock);
 			}
-      release(&p->lock);
-    }
+		}
   }
 }
 
@@ -591,12 +591,13 @@ int
 kill(int pid)
 {
   struct proc *p;
+	struct kthread *kt;
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
-			for (struct kthread *kt = p->kthread ; kt < & p->kthread[NKT]; kt++)
+			for (kt = p->kthread ; kt < & p->kthread[NKT]; kt++)
 			{
 				acquire(&kt->lock);
       	if(kt->state == K_SLEEPING)
@@ -687,11 +688,3 @@ procdump(void)
   }
 }
 
-//void kthreadinit(struct proc* p)
-//{
-//	initlock(&p->alloc_lock, "alloc_lock");	
-//	for (struct kthread* t = p->kthread; t < p->&kthread[NKT]; t++ )
-//	{
-//		initlock(&t->lock,"thread_lock");
-//	}
-//}

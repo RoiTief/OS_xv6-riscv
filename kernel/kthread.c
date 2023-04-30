@@ -10,7 +10,8 @@ extern struct proc proc[NPROC];
 
 extern void forkret(void);
 
-void kthreadinit(struct proc *p)
+void 
+kthreadinit(struct proc *p)
 {
 	initlock(&p->alloc_lock,"allock_lock");
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
@@ -24,7 +25,8 @@ void kthreadinit(struct proc *p)
   }
 }
 
-struct kthread *mykthread()
+struct kthread*
+mykthread()
 {
   push_off();
 	struct cpu *c = mycpu();
@@ -33,7 +35,8 @@ struct kthread *mykthread()
 	return kt;
 }
 
-struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
+struct trapframe*
+get_kthread_trapframe(struct proc *p, struct kthread *kt)
 {
   return p->base_trapframes + ((int)(kt - p->kthread));
 }
@@ -62,7 +65,7 @@ allockthread(struct proc* p)
 			kt->ktid = allocktid(p);
 			kt->state = K_USED;
 			kt->trapframe = get_kthread_trapframe(p, kt);
-			memset(&kt->context, 0, sizeof(p->context));
+			memset(&kt->context, 0, sizeof(kt->context));
 			kt->context.ra = (uint64)forkret;
 			kt->context.sp = kt->kstack + PGSIZE;
 			return kt;

@@ -41,5 +41,6 @@ main()
     plicinithart();   // ask PLIC for device interrupts
   }
 
+	printf("main - scheduler:\n");
   scheduler();        
 }
