@@ -472,7 +472,7 @@ scheduler(void)
     intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
+      // acquire(&p->lock);
       if(p->state == USED) {
 				for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
 				{
@@ -488,7 +488,7 @@ scheduler(void)
 					release(&kt->lock);
 				}
       }
-      release(&p->lock);
+      // release(&p->lock);
     }
   }
 }

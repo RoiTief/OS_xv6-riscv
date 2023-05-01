@@ -94,7 +94,8 @@ forkret(void)
 
   // Still holding p->lock from scheduler.
   release(&mykthread()->lock);
-  release(&mykthread()->proc->lock);
+//   release(&mykthread()->proc->lock);
+  
 
   if (first) {
     // File system initialization must be run in the context of a
