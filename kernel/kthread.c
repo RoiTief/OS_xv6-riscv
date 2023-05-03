@@ -77,12 +77,13 @@ allockthread(struct proc* p)
 void
 freekthread(struct kthread *kthread)
 {
-	kthread->trapframe = 0;
+  acquire(&kthread->lock);
+  kthread->trapframe = 0;
   kthread->chan = 0;
   kthread->killed = 0;
   kthread->ktid = 0;
-  kthread->kstack = 0; 
   kthread->state = K_UNUSED;
+  release(&kthread->lock);
 }
 
 // A fork child's very first scheduling by scheduler()

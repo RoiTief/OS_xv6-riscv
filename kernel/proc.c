@@ -395,7 +395,9 @@ exit(int status)
 		kt->state = K_ZOMBIE;
 		release(&kt->lock);
 	}
-
+  release(&p->lock); // you need to hold only the thread_lock.
+  acquire(&mykthread()->lock);
+  
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
