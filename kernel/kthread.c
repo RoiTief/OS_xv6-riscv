@@ -120,7 +120,7 @@ kill_kt(struct kthread* kt){
 }
 
 int
-kthread_create(uint64 start_func, uint64 stack, uint stack_size){
+kthread_create(uint64 start_func, void *stack, uint stack_size){
 	struct kthread *kt;	
 	struct proc *p;
 	p = myproc();

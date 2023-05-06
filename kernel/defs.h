@@ -111,7 +111,7 @@ int 						get_kt_counter(struct proc *);
 // kthread.c
 void                kthreadinit(struct proc *);
 struct kthread*     mykthread();
-int                 kthread_create(uint64 start_func, uint64 stack, uint stack_size);
+int                 kthread_create(uint64 start_func, void *stack, uint stack_size);
 int                 kthread_id(void);
 void 								kill_all_other_and_wait(uint* k_status);
 int 								kthread_join(int ktid, uint64 status);
