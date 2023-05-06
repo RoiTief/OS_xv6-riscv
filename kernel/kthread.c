@@ -191,6 +191,7 @@ kthread_kill(int ktid){
 
 
 //proc lock should acquired when enter, return if there another active thread from the process
+int
 is_another_active_thread(){
 	struct kthread* my_kt = mykthread();
 	struct proc* p = myproc();
@@ -280,7 +281,7 @@ void kill_other_threads(){
 }
 
 void
-kill_all_other_and_wait(uint k_status){
+kill_all_other_and_wait(uint* k_status){
 	struct kthread* my_kt = mykthread();
 	struct proc* p = myproc();
 	int thread_count;
@@ -290,7 +291,7 @@ kill_all_other_and_wait(uint k_status){
 	
 	for (int i = 1 ; i < thread_count ; i++){
 		if(i != my_kt->ktid)
-			kthread_join(i, &k_status);
+			kthread_join(i, (uint64)k_status);
 	}
 }
 
@@ -312,30 +313,30 @@ int kthread_join(int ktid, uint64 status)
     for(kt = p->kthread; kt < &p->kthread[NKT]; kt++)
     {
     	if(mykthread() == kt || kt->ktid != ktid)
-			continue;
+				continue;
       
 	  // we are on the required kthread
 	
-		acquire(&kt->lock);
-		if(kt->state != K_ZOMBIE){
-			release(&kt->lock);
-			found = 1;
-			break; 
-		}
-
-		if(kt->state == K_ZOMBIE)
-		{ // then the requested thread is done end status is waiting to be collected
-			if(status != 0 && copyout(p->pagetable, status, (char *)&kt->xstatus,
-									sizeof(kt->xstatus)) < 0) {
-				output = -1;
+			acquire(&kt->lock);
+			if(kt->state != K_ZOMBIE){
+				release(&kt->lock);
+				found = 1;
+				break; 
 			}
-			kt->ktid = 0;
-			kt->state = K_UNUSED;
-			release(&kt->lock);
-			release(&p->lock);
-			release(&wait_lock);
-			return output;
-		}
+
+			if(kt->state == K_ZOMBIE)
+			{ // then the requested thread is done end status is waiting to be collected
+				if(status != 0 && copyout(p->pagetable, status, (char *)&kt->xstatus,
+										sizeof(kt->xstatus)) < 0) {
+					output = -1;
+				}
+				kt->ktid = 0;
+				kt->state = K_UNUSED;
+				release(&kt->lock);
+				release(&p->lock);
+				release(&wait_lock);
+				return output;
+			}
 		 
     }
     release(&p->lock);
@@ -347,7 +348,7 @@ int kthread_join(int ktid, uint64 status)
       return -1;
     }
 
-    // Wait for a kthread to finish.
-    sleep(kt, &wait_lock);  //DOC: wait-sleep
+    
+    sleep(kt, &wait_lock);  
   }
 }

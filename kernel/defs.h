@@ -106,12 +106,20 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+int 						get_kt_counter(struct proc *);
 
 // kthread.c
 void                kthreadinit(struct proc *);
 struct kthread*     mykthread();
 int                 kthread_create(uint64 start_func, uint64 stack, uint stack_size);
 int                 kthread_id(void);
+void 								kill_all_other_and_wait(uint* k_status);
+int 								kthread_join(int ktid, uint64 status);
+int									is_kt_killed(struct kthread *kth);
+void								kthread_exit(int status);
+int 								kthread_kill(int ktid);
+void								kill_kt(struct kthread* kt);
+
 
 // swtch.S
 void            swtch(struct context*, struct context*);
