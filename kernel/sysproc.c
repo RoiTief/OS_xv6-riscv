@@ -80,7 +80,7 @@ sys_kill(void)
 }
 
 uint64
-sys_create_kthread(void)
+sys_kthread_create(void)
 {
   uint64 start_func;
   uint64 stack;
