@@ -38,3 +38,6 @@ entry("sleep");
 entry("uptime");
 entry("kthread_create");
 entry("kthread_id");
+entry("kthread_join");
+entry("kthread_exit");
+entry("kthread_kill");
