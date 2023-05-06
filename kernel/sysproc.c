@@ -91,6 +91,10 @@ sys_kthread_create(void)
   argint(2, &stack_size);
   return kthread_create(start_func,stack,stack_size);
 }
+uint64
+sys_kthread_id(void){
+  return kthread_id();
+}
 
 // return how many clock tick interrupts have occurred
 // since start.

@@ -111,6 +111,7 @@ void            procdump(void);
 void                kthreadinit(struct proc *);
 struct kthread*     mykthread();
 int                 kthread_create(uint64 start_func, uint64 stack, uint stack_size);
+int                 kthread_id(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

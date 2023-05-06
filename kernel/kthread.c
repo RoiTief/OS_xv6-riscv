@@ -141,3 +141,7 @@ kthread_create(uint64 start_func, uint64 stack, uint stack_size){
 	return kt->ktid;
 }
 
+int
+kthread_id(void){
+	return mykthread()->ktid;
+}
