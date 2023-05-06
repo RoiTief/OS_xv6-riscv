@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
@@ -58,7 +59,8 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(killed(myproc())){
+    // TODO: change to a thread instead of proc
+    if(killed(myproc())){ 
       release(&tickslock);
       return -1;
     }
@@ -75,6 +77,19 @@ sys_kill(void)
 
   argint(0, &pid);
   return kill(pid);
+}
+
+uint64
+sys_create_kthread(void)
+{
+  uint64 start_func;
+  uint64 stack;
+  int stack_size;
+
+  argaddr(0, &start_func);
+  argaddr(1, &stack);
+  argint(2, &stack_size);
+  return kthread_create(start_func,stack,stack_size);
 }
 
 // return how many clock tick interrupts have occurred

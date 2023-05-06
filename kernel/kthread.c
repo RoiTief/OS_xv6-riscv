@@ -109,3 +109,35 @@ forkret(void)
   usertrapret();
 }
 
+int
+kthread_create(uint64 start_func, uint64 stack, uint stack_size){
+	struct kthread *kt;	
+	struct proc *p;
+	p = myproc();
+
+	acquire(&p->lock);
+	kt = allockthread(p); // note that allockthread locks the kt, so we need to release in order
+	release(&p->lock);
+
+	if(kt){
+		release(&p->lock); 
+		return -1;
+		}
+	// allocated a new thread.
+	// release the p lock so others can acquire.
+	release(&kt->lock);
+	release(&p->lock);
+
+	
+	acquire(&kt->lock);
+	kt->state = K_RUNNABLE;
+
+	// update trapframe 
+	kt->trapframe->epc = (uint64) start_func;
+	kt->trapframe->sp = ((uint64) stack) + stack_size;
+	release(&kt->lock);
+	
+
+	return kt->ktid;
+}
+
