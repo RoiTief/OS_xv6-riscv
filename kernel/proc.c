@@ -336,6 +336,14 @@ fork(void)
   return pid;
 }
 
+int get_kt_counter(struct proc* p){
+  int output;
+  acquire(&p->alloc_lock);
+  output = proc->counter;
+  release(&p->alloc_lock);
+  return output;
+}
+
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
 void
@@ -358,6 +366,8 @@ void
 exit(int status)
 {
   struct proc *p = myproc();
+  struct kthread * my_kt = mykthread();
+  uint k_status;
 
   if(p == initproc)
     panic("init exiting");
@@ -376,6 +386,8 @@ exit(int status)
   end_op();
   p->cwd = 0;
 
+  kill_all_other_and_wait(&k_status);
+
   acquire(&wait_lock);
 
   // Give any children to init.
@@ -389,13 +401,13 @@ exit(int status)
   p->xstate = status;
   p->state = ZOMBIE;
 
-	for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
-	{
-		acquire(&kt->lock);
-		kt->state = K_ZOMBIE;
-		release(&kt->lock);
-	}
+	acquire(&my_kt->lock);
+  my_kt->xstatus = status;
+  my_kt->state = K_ZOMBIE;
+
+  release(&my_kt->lock);
   release(&p->lock); // you need to hold only the thread_lock.
+
   acquire(&mykthread()->lock);
   
   release(&wait_lock);
@@ -602,6 +614,7 @@ kill(int pid)
 			for (kt = p->kthread ; kt < & p->kthread[NKT]; kt++)
 			{
 				acquire(&kt->lock);
+        kt->killed = 1;
       	if(kt->state == K_SLEEPING)
         	kt->state = K_RUNNABLE;
 				release(&kt->lock);

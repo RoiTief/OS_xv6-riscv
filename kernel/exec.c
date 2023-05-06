@@ -31,6 +31,7 @@ exec(char *path, char **argv)
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
   struct kthread *kt = mykthread();
+  uint k_status;
 
   begin_op();
 
@@ -111,6 +112,9 @@ exec(char *path, char **argv)
   if(copyout(pagetable, sp, (char *)ustack, (argc+1)*sizeof(uint64)) < 0)
     goto bad;
 
+
+  kill_all_other_and_wait(&k_status);
+  
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
   // value, which goes in a0.

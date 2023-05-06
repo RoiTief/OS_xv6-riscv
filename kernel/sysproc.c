@@ -59,8 +59,7 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    // TODO: change to a thread instead of proc
-    if(killed(myproc())){ 
+    if(is_kt_killed(mykthread())){ 
       release(&tickslock);
       return -1;
     }

@@ -53,6 +53,9 @@ usertrap(void)
   if(r_scause() == 8){
     // system call
 
+    if(is_kt_killed(kt))
+      kthread_exit(0);
+
     if(killed(p))
       exit(-1);
 
@@ -68,13 +71,13 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+    printf("usertrap(): unexpected scause %p pid=%d, tkid=%d\n", r_scause(), p->pid,kt->ktid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    setkilled(p);
+    kill_kt(kt);
   }
 
-  if(killed(p))
-    exit(-1);
+  if(is_kt_killed(kt))
+    kthread_exit(0);
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
