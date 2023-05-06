@@ -1,3 +1,4 @@
+#include "../kernel/types.h"
 struct stat;
 
 // system calls
@@ -24,7 +25,7 @@ int sleep(int);
 int uptime(void);
 int kthread_id(void);
 int kthread_create(void *(*start_func)(), void *stack, uint stack_size);
-int kthread_join(int ktid, uint64 status);
+int kthread_join(int ktid, int* status);
 void kthread_exit(int status);
 int kthread_kill(int ktid);
     // ulib.c

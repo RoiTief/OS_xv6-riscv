@@ -47,7 +47,6 @@ int main(int argc,char** argv){
     the child prints the lyrics of the song Perfect Day by Lou Reed and exit\n\n");
     fprintf(2,"father PID: %d\n",getpid());
     void* stack = malloc(4000);
-    int thread_status;
     int tid;
     if((tid = kthread_create(thread,stack,4000)) == -1){
         fprintf(2,"[ERROR] couldn't start a thread\n");
