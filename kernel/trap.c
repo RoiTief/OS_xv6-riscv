@@ -54,7 +54,7 @@ usertrap(void)
     // system call
 
     if(is_kt_killed(kt))
-      kthread_exit(0);
+      kthread_exit(-1);
 
     if(killed(p))
       exit(-1);
@@ -77,7 +77,7 @@ usertrap(void)
   }
 
   if(is_kt_killed(kt))
-    kthread_exit(0);
+    kthread_exit(-1);
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
