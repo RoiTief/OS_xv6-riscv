@@ -11,6 +11,8 @@ struct ut_queue
 };
 
 
+void q_init(struct ut_queue *queue);
+
 int q_size(struct ut_queue *queue);
 
 struct uthread* q_poll(struct ut_queue *queue);

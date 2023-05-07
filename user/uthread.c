@@ -1,26 +1,26 @@
-#include "uthread.h"
-#include "uthread_queue.h"
-#include "user.h"
+#include "user/uthread.h"
+#include "user/uthread_queue.h"
+#include "user/user.h"
 
-struct uthread threads[MAX_UTHREADS];
+struct uthread THREADS[MAX_UTHREADS];
 struct uthread *curr_thread;
-struct ut_queue high_queue;
-struct ut_queue medium_queue;
-struct ut_queue low_queue;
-int thread_num =0;
+struct ut_queue queues[3];
 int started = 0;
 
 struct uthread*
 find_next_thread(void)
 {	
-	struct uthread *next_thread = 
-									q_size(&high_queue) > 0 ? q_poll(&high_queue) : 
-									q_size(&medium_queue) > 0 ? q_poll(&medium_queue) :
-									q_size(&low_queue) > 0 ? q_poll(&low_queue) : 
+	struct uthread *next_thread = 0;  
+	next_thread =
+									q_size(&queues[HIGH]) > 0 ? q_poll(&queues[HIGH]) : 
+									q_size(&queues[MEDIUM]) > 0 ? q_poll(&queues[MEDIUM]) :
+									q_size(&queues[LOW]) > 0 ? q_poll(&queues[LOW]) : 
 									0;
 	
 	if (!next_thread)
-		exit(0);
+	{
+		kthread_exit(0);
+	}
 
 	return next_thread;
 }
@@ -34,70 +34,63 @@ switch_thread(){
 	uswtch(&old_thread->context,&next_thread->context);
 }
 
-void
-add_to_queue(struct uthread* t)
-{
-	t->priority == LOW ? q_add(&low_queue,t) : 
-	t->priority == MEDIUM ? q_add(&medium_queue,t) :  
-	q_add(&high_queue,t);
-}
-
 int 
 uthread_create(void (*start_func)(), enum sched_priority priority)
 {
-	if(thread_num == MAX_UTHREADS)
-		return -1;
-
-	struct uthread* t;	
-	for (t = threads ; t->state != FREE; t++);
-	t->state = RUNNABLE;
+  struct uthread *t;
+  for(t = THREADS; t->state != FREE && t < &THREADS[MAX_UTHREADS]; t++) continue;
+	if (t >= &THREADS[MAX_UTHREADS]) return -1;
 	t->priority = priority;
+	memset(&t->context, 0, sizeof(t->context));
 	t->context.ra = (uint64) start_func;
 	t->context.sp = (uint64) &t->ustack + STACK_SIZE;
-	thread_num++;
-	add_to_queue(t);
+	t->state = RUNNABLE;
+	q_add(&queues[t->priority],t);
 	return 0;
 }
 
 void 
-uthread_yield(){
-	curr_thread->state = RUNNABLE;
-	add_to_queue(curr_thread);
-	switch_thread();
+uthread_yield()
+{
+  curr_thread->state = RUNNABLE;
+	q_add(&queues[curr_thread->priority],curr_thread);
+  switch_thread();
 }
 
 void 
-uthread_exit(){
-	curr_thread->state = FREE;
+uthread_exit()
+{
+	curr_thread->state = FREE; 
 	switch_thread();
 }
 
 int 
-uthread_start_all(){
-	if(started)
+uthread_start_all()
+{
+	if(started != 0)
 		return -1;
 	started = 1;
 	struct context c;
-	struct uthread *to_run = find_next_thread();
-	if (to_run)
-	{
-		to_run->state = RUNNING;
-		curr_thread = to_run;
-		uswtch(&c,&to_run->context);
-	}
-	return 0;
+	curr_thread = find_next_thread();
+  curr_thread->state = RUNNING;
+  uswtch(&c, &curr_thread->context);
+	return -1;
 }
 
-enum sched_priority uthread_set_priority(enum sched_priority priority){
+enum sched_priority uthread_set_priority(enum sched_priority priority)
+{
 	enum sched_priority previous = curr_thread->priority;
-	curr_thread->priority =  priority;
+	curr_thread->priority = priority;
 	return previous;
 }
-enum sched_priority uthread_get_priority(){
+
+enum sched_priority uthread_get_priority()
+{
 	return curr_thread->priority;
 }
 
-struct uthread* uthread_self(){
+struct uthread* uthread_self()
+{
 	return curr_thread;
 }
 

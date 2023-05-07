@@ -53,11 +53,13 @@ usertrap(void)
   if(r_scause() == 8){
     // system call
 
+    if(killed(p))
+      exit(-1);
+
     if(is_kt_killed(kt))
       kthread_exit(-1);
 
-    if(killed(p))
-      exit(-1);
+
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
@@ -75,6 +77,9 @@ usertrap(void)
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     kill_kt(kt);
   }
+
+  if(killed(p))
+    exit(-1);
 
   if(is_kt_killed(kt))
     kthread_exit(-1);

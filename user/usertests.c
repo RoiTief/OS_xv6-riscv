@@ -809,7 +809,7 @@ killstatus(char *s)
     kill(pid1);
     wait(&xst);
     if(xst != -1) {
-       printf("%s: status should be -1\n", s);
+       printf("%s: status should be -1 but was %d\n", s, xst);
        exit(1);
     }
   }
