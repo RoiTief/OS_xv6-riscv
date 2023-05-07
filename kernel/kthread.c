@@ -60,13 +60,17 @@ allockthread(struct proc* p)
 	struct kthread *kt;
 	for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
 	{
+		if(kt == mykthread())
+			continue;
+
 		acquire(&kt->lock);
-		if (kt->state != K_UNUSED)
+		if (kt->state != K_UNUSED){
 			release(&kt->lock);
+			}
 		else
 		{
-			kt->ktid = allocktid(p);
 			kt->state = K_USED;
+			kt->ktid = allocktid(p);
 			kt->trapframe = get_kthread_trapframe(p, kt);
 			memset(&kt->context, 0, sizeof(kt->context));
 			kt->context.ra = (uint64)forkret;
@@ -129,16 +133,14 @@ kthread_create(uint64 start_func, void *stack, uint stack_size){
 	kt = allockthread(p); // note that allockthread locks the kt, so we need to release in order
 	release(&p->lock);
 
-	if(kt){
-		release(&p->lock); 
+	if(!kt){
 		return -1;
-		}
+	}
 	// allocated a new thread.
 	// release the p lock so others can acquire.
 	release(&kt->lock);
-	release(&p->lock);
-
 	
+
 	acquire(&kt->lock);
 	kt->state = K_RUNNABLE;
 
@@ -146,7 +148,6 @@ kthread_create(uint64 start_func, void *stack, uint stack_size){
 	kt->trapframe->epc = (uint64) start_func;
 	kt->trapframe->sp = ((uint64) stack) + stack_size;
 	release(&kt->lock);
-	
 
 	return kt->ktid;
 }

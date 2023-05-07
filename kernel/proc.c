@@ -248,8 +248,8 @@ userinit(void)
   p->sz = PGSIZE;
 
   // prepare for the very first "return" from kernel to user.
-  p->kthread[0].trapframe->epc = 0;      // user program counter
-  p->kthread[0].trapframe->sp = PGSIZE;  // user stack pointer
+  p->base_trapframes[0].epc = 0;      // user program counter
+  p->base_trapframes[0].sp = PGSIZE;  // user stack pointer
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -304,10 +304,10 @@ fork(void)
   np->sz = p->sz;
 
   // copy saved user registers.
-  *(np->kthread[0].trapframe) = *(kt->trapframe);
+  np->base_trapframes[0] = *(kt->trapframe);
 
   // Cause fork to return 0 in the child.
-  np->kthread[0].trapframe->a0 = 0;
+  np->base_trapframes[0].a0 = 0;
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
@@ -477,32 +477,32 @@ void
 scheduler(void)
 {
   struct proc *p;
-	struct kthread *kt;
+  struct kthread *currThread;
   struct cpu *c = mycpu();
   
   c->kthread = 0;
   for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
-      // acquire(&p->lock);
-      if(p->state == USED) {
-				for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
-				{
-					acquire(&kt->lock);
-					if (kt->state == K_RUNNABLE)
-					{
-						kt->state = K_RUNNING;
-						c->kthread = kt;
-						swtch(&c->context, &kt->context);
+      for(currThread = p->kthread; currThread < &p->kthread[NKT]; currThread++)
+      {
+        // Avoid deadlock by ensuring that devices can interrupt.
+        intr_on();
 
-						c->kthread = 0;
-					}
-					release(&kt->lock);
-				}
+        acquire(&currThread->lock);
+        if(currThread->state == K_RUNNABLE) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          currThread->state = K_RUNNING;
+          c->kthread = currThread;
+          swtch(&c->context, &currThread->context);
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->kthread = 0;
+        }
+        release(&currThread->lock);
       }
-      // release(&p->lock);
     }
   }
 }
