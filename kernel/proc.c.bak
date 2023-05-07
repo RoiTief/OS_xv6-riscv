@@ -491,10 +491,14 @@ scheduler(void)
 
         acquire(&currThread->lock);
         if(currThread->state == K_RUNNABLE) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
           currThread->state = K_RUNNING;
           c->kthread = currThread;
           swtch(&c->context, &currThread->context);
-          
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
           c->kthread = 0;
         }
         release(&currThread->lock);
