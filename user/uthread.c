@@ -52,8 +52,8 @@ uthread_create(void (*start_func)(), enum sched_priority priority)
 	for (t = threads ; t->state != FREE; t++);
 	t->state = RUNNABLE;
 	t->priority = priority;
-	t->context.ra = (uint64)start_func;
-	t->context.sp = (uint64)t->ustack; // this is char[]
+	t->context.ra = (uint64) start_func;
+	t->context.sp = (uint64) &t->ustack + STACK_SIZE;
 	thread_num++;
 	add_to_queue(t);
 	return 0;
@@ -82,6 +82,7 @@ uthread_start_all(){
 	if (to_run)
 	{
 		to_run->state = RUNNING;
+		curr_thread = to_run;
 		uswtch(&c,&to_run->context);
 	}
 	return 0;
