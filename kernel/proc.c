@@ -477,27 +477,28 @@ void
 scheduler(void)
 {
   struct proc *p;
-  struct kthread *currThread;
+  struct kthread *kt;
   struct cpu *c = mycpu();
   
   c->kthread = 0;
   for(;;){
 
     for(p = proc; p < &proc[NPROC]; p++) {
-      for(currThread = p->kthread; currThread < &p->kthread[NKT]; currThread++)
+      for(kt = p->kthread; kt < &p->kthread[NKT]; kt++)
       {
         // Avoid deadlock by ensuring that devices can interrupt.
         intr_on();
 
-        acquire(&currThread->lock);
-        if(currThread->state == K_RUNNABLE) {
-          currThread->state = K_RUNNING;
-          c->kthread = currThread;
-          swtch(&c->context, &currThread->context);
+        acquire(&kt->lock);
+        if(kt->state == K_RUNNABLE) {
+          
+		  c->kthread = kt;
+          kt->state = K_RUNNING;
+          swtch(&c->context, &kt->context);
           
           c->kthread = 0;
         }
-        release(&currThread->lock);
+        release(&kt->lock);
       }
     }
   }
