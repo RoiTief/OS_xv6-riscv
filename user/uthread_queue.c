@@ -1,6 +1,15 @@
 #include "uthread_queue.h"
 #include "uthread.h"
+#include "user.h"
 
+
+void 
+q_init(struct ut_queue *queue)
+{
+	queue->size = 0;
+	for (int i = 0; i < MAX_QUEUE_SIZE ; i++)
+		queue->queue[i] = 0;
+}
 
 int 
 q_size(struct ut_queue *queue)
@@ -11,13 +20,13 @@ q_size(struct ut_queue *queue)
 struct uthread* 
 q_poll(struct ut_queue *queue)
 {
-	struct uthread* to_return = NULL;
+	struct uthread* to_return = 0;
 	if (queue->size == 0)
 		return to_return;
 	int i = 0;
-	for (; queue->queue[i] == NULL && i < MAX_QUEUE_SIZE; i++);
+	for (; queue->queue[i] == 0 && i < MAX_QUEUE_SIZE; i++);
 	to_return = queue->queue[i];
-	queue->queue[i] = NULL;
+	queue->queue[i] = 0;
 	queue->size--;
 	return to_return;
 }

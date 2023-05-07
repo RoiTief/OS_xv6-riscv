@@ -53,11 +53,13 @@ usertrap(void)
   if(r_scause() == 8){
     // system call
 
-    if(is_kt_killed(kt))
-      kthread_exit(0);
-
     if(killed(p))
       exit(-1);
+
+    if(is_kt_killed(kt))
+      kthread_exit(-1);
+
+
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
@@ -76,8 +78,12 @@ usertrap(void)
     kill_kt(kt);
   }
 
+  if(killed(p))
+    exit(-1);
+
   if(is_kt_killed(kt))
-    kthread_exit(0);
+    kthread_exit(-1);
+
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
