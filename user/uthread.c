@@ -43,7 +43,7 @@ uthread_create(void (*start_func)(), enum sched_priority priority)
 	t->priority = priority;
 	memset(&t->context, 0, sizeof(t->context));
 	t->context.ra = (uint64) start_func;
-	t->context.sp = (uint64) t->ustack + STACK_SIZE;
+	t->context.sp = (uint64) &t->ustack + STACK_SIZE;
 	t->state = RUNNABLE;
 	q_add(&queues[t->priority],t);
 	return 0;
