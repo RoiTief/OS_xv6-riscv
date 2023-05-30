@@ -243,6 +243,10 @@ void uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
   memmove(mem, src, sz);
 }
 
+int calc_page_index(struct page* page,struct page* start_arr){
+  return (int)(page - start_arr);
+}
+
 int find_min_time_page_index()
 {
   struct page *page;
@@ -252,10 +256,10 @@ int find_min_time_page_index()
   for (page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++)
   {
     if (!page->in_use)
-      return (int)(page - p->pages_in_memory);
+      return calc_page_index(page , p->pages_in_memory);
     if (page->time <= min_time)
     {
-      min_index = (int)(page - p->pages_in_memory);
+      min_index = calc_page_index(page , p->pages_in_memory);
       min_time = page->time;
     }
   }
@@ -282,13 +286,13 @@ int lapa()
   for (page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++)
   {
     if (!page->in_use)
-      return (int)(page - p->pages_in_memory);
+      return calc_page_index(page , p->pages_in_memory);
 
     ones = count_time_ones(page);
     if (ones < min_ones || (min_ones == ones &&  page->time < p->pages_in_memory[index].time))
     {
       min_ones = ones;
-      index = (int)(page - p->pages_in_memory);
+      index = calc_page_index(page , p->pages_in_memory);
     }
   }
   return index;
@@ -345,6 +349,9 @@ void swap_out_page(pagetable_t pagetable)
   int offset_in_file;
   int to_swap_index;
 
+  if(p->swap_count == MAX_SWAP_PAGES)
+    panic("Swap file is full.");
+
   to_swap_index = get_to_swap_index();
 
   to_swap = &p->pages_in_memory[to_swap_index];
@@ -359,7 +366,7 @@ void swap_out_page(pagetable_t pagetable)
       swap_page_entry->virtual_address = to_swap->virtual_address;
       pte = walk(pagetable, swap_page_entry->virtual_address, 0); // find the pte of the page we swapping
       pa = PTE2PA(*pte);
-      offset_in_file = (swap_page_entry - p->pages_in_swapfile) * PGSIZE;
+      offset_in_file = calc_page_index(swap_page_entry, p->pages_in_swapfile) * PGSIZE;
       swap_page_entry->in_use = 1;
       writeToSwapFile(p, (char *)pa, offset_in_file, PGSIZE);
 
@@ -404,7 +411,7 @@ void put_in_memory(uint64 virtual_address, pagetable_t pagetable)
 
   if (p->psyc_count + p->swap_count == MAX_TOTAL_PAGES)
     panic("put_in_memory: too many pages");
-    
+
   if (p->psyc_count == MAX_PSYC_PAGES)
     swap_out_page(pagetable);
 
