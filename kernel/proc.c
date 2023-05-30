@@ -18,7 +18,7 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
-struct proc * shell
+struct proc * shell;
 
 extern char trampoline[]; // trampoline.S
 
@@ -166,6 +166,7 @@ void nullify_page_fields(struct page *page)
 }
 
 // not an kernel base process
+int
 proc_is_not_os(struct proc *p)
 {
   return p != initproc  && p != shell;
