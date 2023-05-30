@@ -183,7 +183,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   {
     if ((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
-    if ((*pte & PTE_V) == 0 && (*pte & PTE_IN_SWAP_MEM) == 0) // the parenthesis might be worng
+    if ((*pte & PTE_V) == 0 && (*pte & PTE_PG) == 0) // the parenthesis might be worng
       panic("uvmunmap: not mapped");
     if (PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
@@ -203,7 +203,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
         }
 
     // if va in swap, delete it
-    if (proc_is_not_os(p) && pagetable == p->pagetable && (*pte & PTE_IN_SWAP_MEM))
+    if (proc_is_not_os(p) && pagetable == p->pagetable && (*pte & PTE_PG))
       for (page = p->pages_in_swapfile; page < &p->pages_in_swapfile[MAX_SWAP_PAGES]; page++)
         if (page->virtual_address == a)
         {
@@ -376,7 +376,7 @@ void swap_out_page(pagetable_t pagetable)
       to_swap->virtual_address = 0;
 
       *pte &= ~PTE_V;
-      *pte |= PTE_IN_SWAP_MEM;
+      *pte |= PTE_PG;
       kfree((void *)pa);
       sfence_vma();
       break;
@@ -431,7 +431,7 @@ void put_in_memory(uint64 virtual_address, pagetable_t pagetable)
 #endif
 
   pte_t *pte = walk(pagetable, page->virtual_address, 0);
-  *pte &= ~PTE_IN_SWAP_MEM;
+  *pte &= ~PTE_PG;
   *pte |= PTE_V;
   page->in_use = 1;
   page->virtual_address = virtual_address;
@@ -539,13 +539,13 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   {
     if ((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
-    if ((*pte & PTE_V) == 0 && (*pte & PTE_IN_SWAP_MEM) == 0)
+    if ((*pte & PTE_V) == 0 && (*pte & PTE_PG) == 0)
       panic("uvmcopy: page not present");
 
-    if ((*pte & PTE_V) == 1 && (*pte & PTE_IN_SWAP_MEM) == 1)
+    if ((*pte & PTE_V) == 1 && (*pte & PTE_PG) == 1)
       panic("uvmcopy: bug, pte both in psyc and swap");
 
-    if ((*pte & PTE_IN_SWAP_MEM) == 1)
+    if ((*pte & PTE_PG) == 1)
     {
       new_pte = walk(new, i, 1);
       *new_pte |= PTE_FLAGS(*pte);
