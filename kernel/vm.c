@@ -351,6 +351,50 @@ find_free_entry (struct page pages[], int size)
 	return 0;
 }
 
+struct page*
+get_page_by_va(struct page pages[], int size, uint64 va)
+{
+	for (struct page* page = pages; page < &pages[size]; page++)
+	{
+		if (page->virtual_address == va) return page;
+	}
+	return 0;
+}
+
+void swap_in_page(uint64 va)
+{
+  struct proc *p = myproc();
+
+
+	va = PGROUNDDOWN(va);
+	//get page with virtual_address == va
+	struct page* to_swap_from = get_page_by_va(p->pages_in_swapfile, MAX_SWAP_PAGES, va); 
+	if (!to_swap_from)
+		panic("swap_in_page: Coulnd't find page from swapfile");
+  int offset_in_file = calc_page_index(to_swap, p->pages_in_swapfile) * PGSIZE;;
+	
+	// new page for the swapped in data
+	char *new_page = kalloc();
+
+  // move the page data to the temp page
+  readFromSwapFile(p, new_page, offset_in_file, PGSIZE);
+
+	// make page in swapfile available for swap_out
+  p->swap_count--;
+	to_swap->in_use = 0;
+
+	// make sure psyc memory has space for swap in
+	if(p->psyc_count == MAX_PSYC_PAGES)
+		swap_out_page(p->pagetable);
+
+	// fix pte
+	pte_t *pte = walk(p->pagetable, va, 0);
+	*pte = PA2PTE(new_page) | PTE_FLAGS(*pte)
+
+	// complete the swap_in
+	put_in_memory(va, p->pagetable);
+}
+
 void swap_out_page(pagetable_t pagetable)
 {
   struct proc *p = myproc();
@@ -369,6 +413,8 @@ void swap_out_page(pagetable_t pagetable)
 
   // first find a free entry in the swap array
 	swap_page_entry = find_free_entry(p->pages_in_swapfile, MAX_SWAP_PAGES); // assumes one is always available
+	if (!swap_page_entry)
+		panic("swap_out_page: Couldn't find new page to swap to");
 
 
   swap_page_entry->virtual_address = to_swap->virtual_address;
@@ -422,8 +468,7 @@ void put_in_memory(uint64 virtual_address, pagetable_t pagetable)
 
   p->psyc_count++;
 
-  int available_page_index = get_available_memory_entry_index(p);
-  page = &p->pages_in_memory[available_page_index];
+  page = &p->pages_in_memory[get_available_memory_entry_index(p)];
 #ifdef NFUA
   page->time = 0;
 #endif
@@ -431,8 +476,7 @@ void put_in_memory(uint64 virtual_address, pagetable_t pagetable)
   page->time = (uint64)~0;
 #endif
 #ifdef SCFIFO
-  p->time = p->time + 1;
-  page->time = p->time;
+  page->time = ++p->time;
 #endif
 
   pte_t *pte = walk(pagetable, page->virtual_address, 0);

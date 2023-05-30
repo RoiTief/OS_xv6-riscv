@@ -88,7 +88,7 @@ usertrap(void)
 //
 void
 usertrapret(void)
-{
+{break
   struct proc *p = myproc();
 
   // we're about to switch the destination of traps from
@@ -169,6 +169,19 @@ clockintr()
   release(&tickslock);
 }
 
+
+int page_fault(uint64 va){
+	struct proc *p = myproc();
+	va = PGROUNDDOWN(va);
+	pte_t *pte = walk(p->pagetable, va, 0);
+	if(pte && (*pte & PTE_PG)){
+		swap_in_page(va);
+	}
+	else{
+		panic("page_fault: segmentation fault");
+	}
+}
+
 // check if it's an external interrupt or software interrupt,
 // and handle it.
 // returns 2 if timer interrupt,
@@ -215,6 +228,12 @@ devintr()
 
     return 2;
   } else {
+
+	#ifndef NONE
+	if(proc_is_not_os(myproc() && scause == 13 || scaus) == 15 || scause == 12)
+		return page_fault(r_stval());
+	#endif
+		
     return 0;
   }
 }
