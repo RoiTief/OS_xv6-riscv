@@ -7,6 +7,8 @@
 #include "fs.h"
 #include "proc.h"
 
+void swap_out_page(pagetable_t pagetable);
+void put_in_memory(uint64 virtual_address, pagetable_t pagetable);
 /*
  * the kernel's page table.
  */
@@ -171,8 +173,6 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 // Optionally free the physical memory.
 void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
-  struct proc *p = myproc();
-  struct page *page;
   uint64 a;
   pte_t *pte;
 
@@ -193,6 +193,8 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       kfree((void *)pa);
     }
 #ifndef NONE
+  struct proc *p = myproc();
+  struct page *page;
     // if va in memory, delete it
     if (pagetable == p->pagetable && proc_is_not_os(p) && (*pte & PTE_V) && do_free)
       for (page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++)
@@ -282,7 +284,6 @@ int lapa()
   struct proc *p = myproc();
   struct page *page;
   int min_ones = 100, index = -1, ones = 0;
-  int ;
   for (page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++)
   {
     if (!page->in_use)
@@ -337,13 +338,14 @@ int get_to_swap_index()
 #ifdef LAPA
   return lapa();
 #endif
+  return 0; // should not get here .
 }
 
 
 struct page* 
 find_free_entry (struct page pages[], int size)
 {
-	for (entry = pages; entry < &pages[size] ; entry++)
+	for (struct page* entry = pages; entry < &pages[size] ; entry++)
 	{
 		if (!entry->in_use)
 			return entry;
@@ -371,7 +373,7 @@ void swap_in_page(uint64 va)
 	struct page* to_swap_from = get_page_by_va(p->pages_in_swapfile, MAX_SWAP_PAGES, va); 
 	if (!to_swap_from)
 		panic("swap_in_page: Coulnd't find page from swapfile");
-  int offset_in_file = calc_page_index(to_swap, p->pages_in_swapfile) * PGSIZE;;
+  int offset_in_file = calc_page_index(to_swap_from, p->pages_in_swapfile) * PGSIZE;;
 	
 	// new page for the swapped in data
 	char *new_page = kalloc();
@@ -381,7 +383,7 @@ void swap_in_page(uint64 va)
 
 	// make page in swapfile available for swap_out
   p->swap_count--;
-	to_swap->in_use = 0;
+	to_swap_from->in_use = 0;
 
 	// make sure psyc memory has space for swap in
 	if(p->psyc_count == MAX_PSYC_PAGES)
@@ -389,7 +391,7 @@ void swap_in_page(uint64 va)
 
 	// fix pte
 	pte_t *pte = walk(p->pagetable, va, 0);
-	*pte = PA2PTE(new_page) | PTE_FLAGS(*pte)
+	*pte = PA2PTE(new_page) | PTE_FLAGS(*pte);
 
 	// complete the swap_in
 	put_in_memory(va, p->pagetable);
