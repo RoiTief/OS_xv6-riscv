@@ -339,6 +339,18 @@ int get_to_swap_index()
 #endif
 }
 
+
+struct page* 
+find_free_entry (struct page pages[], int size)
+{
+	for (entry = pages; entry < &pages[size] ; entry++)
+	{
+		if (!entry->in_use)
+			return entry;
+	}
+	return 0;
+}
+
 void swap_out_page(pagetable_t pagetable)
 {
   struct proc *p = myproc();
@@ -347,41 +359,34 @@ void swap_out_page(pagetable_t pagetable)
   pte_t *pte;
   uint64 pa;
   int offset_in_file;
-  int to_swap_index;
 
   if(p->swap_count == MAX_SWAP_PAGES)
     panic("Swap file is full.");
 
-  to_swap_index = get_to_swap_index();
-
-  to_swap = &p->pages_in_memory[to_swap_index];
+  to_swap = &p->pages_in_memory[get_to_swap_index()];
 
   // move the page data to the swap pages
 
   // first find a free entry in the swap array
-  for (swap_page_entry = p->pages_in_swapfile; swap_page_entry < &p->pages_in_swapfile[MAX_SWAP_PAGES]; swap_page_entry++)
-  {
-    if (!swap_page_entry->in_use)
-    {
-      swap_page_entry->virtual_address = to_swap->virtual_address;
-      pte = walk(pagetable, swap_page_entry->virtual_address, 0); // find the pte of the page we swapping
-      pa = PTE2PA(*pte);
-      offset_in_file = calc_page_index(swap_page_entry, p->pages_in_swapfile) * PGSIZE;
-      swap_page_entry->in_use = 1;
-      writeToSwapFile(p, (char *)pa, offset_in_file, PGSIZE);
+	swap_page_entry = find_free_entry(p->pages_in_swapfile, MAX_SWAP_PAGES); // assumes one is always available
 
-      p->psyc_count--;
-      p->swap_count++;
-      to_swap->in_use = 0;
-      to_swap->virtual_address = 0;
 
-      *pte &= ~PTE_V;
-      *pte |= PTE_PG;
-      kfree((void *)pa);
-      sfence_vma();
-      break;
-    }
-  }
+  swap_page_entry->virtual_address = to_swap->virtual_address;
+  pte = walk(pagetable, swap_page_entry->virtual_address, 0); // find the pte of the page we swapping
+  pa = PTE2PA(*pte);
+  offset_in_file = calc_page_index(swap_page_entry, p->pages_in_swapfile) * PGSIZE;
+  swap_page_entry->in_use = 1;
+  writeToSwapFile(p, (char *)pa, offset_in_file, PGSIZE);
+
+  p->psyc_count--;
+  p->swap_count++;
+  to_swap->in_use = 0;
+  to_swap->virtual_address = 0;
+
+  *pte &= ~PTE_V;
+  *pte |= PTE_PG;
+  kfree((void *)pa);
+  sfence_vma();
 }
 
 int get_available_memory_entry_index(struct proc *p)
@@ -539,19 +544,20 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   {
     if ((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
-    if ((*pte & PTE_V) == 0 && (*pte & PTE_PG) == 0)
+    if (!((*pte & PTE_V) || (*pte & PTE_PG)))
       panic("uvmcopy: page not present");
 
-    if ((*pte & PTE_V) == 1 && (*pte & PTE_PG) == 1)
+    if ((*pte & PTE_V) && (*pte & PTE_PG))
       panic("uvmcopy: bug, pte both in psyc and swap");
 
-    if ((*pte & PTE_PG) == 1)
+    if (*pte & PTE_PG)
     {
       new_pte = walk(new, i, 1);
       *new_pte |= PTE_FLAGS(*pte);
       continue;
     }
 
+		// else we found a pa;
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if ((mem = kalloc()) == 0)
