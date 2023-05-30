@@ -146,6 +146,16 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+	#ifndef NONE
+	// paging - reset
+	for (struct page* page = p->pages; page < p->pages[MAX_TOTAL_PAGES]; page++)
+	{
+		nullify_page_fields(page);
+	}
+	p->count_in_mem = 0;
+	p->count_in_swap = 0;
+	#ifdef
+
   return p;
 }
 
@@ -274,6 +284,65 @@ growproc(int n)
   return 0;
 }
 
+int 
+is_user_proc(struct proc* p)
+{
+	return p->pid > 2 ? 1 : 0;
+}
+
+void
+nullify_page_fields(struct page *page)
+{
+	page->state = AVAILABLE;
+	page->va = 0;
+}
+
+void
+copy_page(struct page *to_copy, struct page *copy)
+{
+	copy->state = to_copy->state;
+	copy->va = to_copy->va;
+}
+
+int
+fork_pages(struct proc *parent, struct proc *child)
+{
+	// create swapfile
+  if (is_user_proc(child))
+	{
+    if (createSwapFile(child) < 0)
+			return -1;
+	}
+
+	// copy parent's pages
+  if (is_user_proc(p))
+  {
+		child->count_in_mem = parent->count_in_mem;
+    child->count_in_swap = parent->count_in_swap;
+
+    char *buffer = kalloc();
+    for (int i = 0; i < MAX_TOTAL_PAGES; i++)
+    {
+      copy_page_state(&parent->pages[i], &child->pages[i]);
+
+    	// coping the swap file
+			if (parent->pages[i].state == SWAPPED_OUT)
+			{
+    		char *buff = kalloc();
+				if (readFromSwapFile(parent, buff, i * PGSIZE, PGSIZE) < 0 ||
+						writeToSwapFile(child, buffer, i * PGSIZE, PGSIZE) < 0)
+				{
+    			kfree(buffer);
+					return -1;
+				}
+			}
+    }
+  }
+
+	// all is well
+	return 0;
+}
+
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -311,6 +380,15 @@ fork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+
+	#ifndef NONE
+	if (fork_paging(p, np) < 0)
+	{
+		freeproc(np);
+		release(&np->lock);
+		return -1;
+	}
+	#endif
 
   release(&np->lock);
 
@@ -379,6 +457,11 @@ exit(int status)
   p->state = ZOMBIE;
 
   release(&wait_lock);
+
+	#ifndef NONE
+	if (is_user_proc(p))
+		removeSwapFile(p);
+	#endif
 
   // Jump into the scheduler, never to return.
   sched();

@@ -1,3 +1,6 @@
+#define MAX_PSYC_PAGES=16
+#define MAX_TOTAL_PAGES=32
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -79,6 +82,13 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
+enum pagestate { AVAILABLE, IN_MEMORY, SWAPPED_OUT };
+
+struct page {
+	enum pagestate state = AVAILABLE;
+	uint64 va = 0;
+};
+
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -105,5 +115,9 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  struct file *swapFile;
+	// paging
+  struct file *swapFile = 0;
+	struct page pages[MAX_TOTAL_PAGES];
+	int count_in_mem = 0;
+	int count_in_swap = 0;
 };

@@ -31,6 +31,20 @@ exec(char *path, char **argv)
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
 
+	#ifndef NONE
+	// prepare recovery if somethins goes to 'bad'
+	int recovery_in_mem = p->count_in_mem;
+	int recovery_in_swap = p->count_in_swap;
+	struct page recovery_pages[MAX_TOTAL_PAGES];
+	if (is_user_proc(p))
+	{
+		for (int i = 0; i < MAX_TOTAL_PAGES; i++)
+		{
+			copy_page(&p->pages[i], &recovery_pages[i]);
+		}
+	}
+	#endif
+
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -48,6 +62,18 @@ exec(char *path, char **argv)
 
   if((pagetable = proc_pagetable(p)) == 0)
     goto bad;
+
+	#ifndef NONE
+	p->count_in_mem = 0;
+	p->count_in_swap = 0;
+	if (is_user_proc(p))
+	{
+		for (struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
+		{
+			nullify_page_fields(page);
+		}
+	}
+	#endif
 
   // Load program into memory.
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
@@ -137,6 +163,20 @@ exec(char *path, char **argv)
     iunlockput(ip);
     end_op();
   }
+
+	#ifndef NONE
+	// recovery 
+	p->count_in_mem = recovery_in_mem;
+	p->count_in_swap = recovery_in_swap;
+	if (is_user_proc(p))
+	{
+		for (int i = 0; i < MAX_TOTAL_PAGES; i++)
+		{
+			copy_page(&recovery_pages[i], &p->pages[i]);
+		}
+	}
+	#endif
+
   return -1;
 }
 

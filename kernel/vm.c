@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -164,6 +166,101 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   return 0;
 }
 
+struct page*
+get_available_page()
+{
+	struct proc *p = myproc();
+	for (struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES] ; page++)
+		if (page->state == AVAILABLE)
+			return page;
+	return 0;
+}
+
+struct page*
+get_page_with(uint64 va)
+{
+	struct proc *p = myproc();
+	for (struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES] ; page++)
+		if (page->va == va)
+			return page;
+	return 0;
+}
+
+struct page*
+get_page_to_swap_for(struct proc *p)
+{
+	// TODO: insert calls to algorithms based on make parameter.
+}
+
+int
+swap_out()
+{
+	struct proc *p = myproc();
+
+	// find a page to swap out based on algorithm
+	struct page *to_swap = get_page_to_swap_for(p);
+	if (!to_swap)
+		panic("swap_out: couldn't find a page to swap out");
+
+	// calculate its offset in swapfile
+	uint offset = (to_swap - p->pages) * PGSIZE;
+
+	// write to swapfile
+	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0)
+	uint64 pa = PTE2PA;
+	if (writeToSwapFile(p, (char *)pa, offset, PGSIZE) == -1)
+		return -1;
+
+	// fix states and counters
+	*pte &= ~PTE_V;
+	*pte |= PTE_PG;
+	page->state = SWAPPED_OUT;
+	p->count_in_mem--;
+	p->count_in_swap++;
+
+	// free physical memory and TLB
+	kfree((void*) pa);
+	sfence_vma();
+
+	return 0;
+}
+
+int
+swap_in(uint64 va)
+{
+	struct proc *p = myproc();
+	va = PGROUNDDOWN(va);
+
+	// find the swapped out page corresponding to 'va'
+	struct page *to_swap = get_page_with(va);
+	if (!to_swap)
+		panic("swap_in: couldn't find a page corresponding to given va");
+	if (to_swap->state != SWAPPED_OUT)
+		panic("swap_in: found page is not SWAPPED_OUT");
+	
+	//allocate new page in physical memory 
+	void *new_page = kalloc();
+
+	// read the page's content into a new file
+	uint offset = (to_swap - p->pages) * PGSIZE;
+	if (readFromSwapFile(p, (char*)new_page, offset, PGSIZE) == -1)
+	{
+		kfree((void*) new_page);
+		return -1;
+	}
+
+	// fix translation between va and new_page
+	pte_t *pte = walk(p->pagetable, va, 0);
+	*pte = PA2PTE(((uint64)new_page)) | PTE_FLAGS(*pte);
+
+	// fix pte and page state
+	*pte &= ~PTE_PG;
+	*pte |= PTE_V;
+	to_swap->state = IN_MEMORY;
+
+	return 0;
+}
+
 // Remove npages of mappings starting from va. va must be
 // page-aligned. The mappings must exist.
 // Optionally free the physical memory.
@@ -179,14 +276,35 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0)
+    if((*pte & PTE_V) == 0 && (*pte & PTE_PG) == 0)
       panic("uvmunmap: not mapped");
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
+
+		#ifdef NONE
     if(do_free){
       uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
+		#endif
+
+		#ifndef NONE
+  	struct page *page = get_page_with(a);
+    // if va in memory, delete it
+    if (do_free && page->state == IN_MEMORY)
+		{
+			uint64 pa = PTE2PA(*pte);
+			kfree((void*)pa);
+    	nullify_page_fields(page);
+    	p->count_in_mem--;
+    } 
+		else if (page->state == SWAPPED_OUT)
+		{
+    	nullify_page_fields(page);
+    	p->count_in_swap--;
+		}
+		#endif
+
     *pte = 0;
   }
 }
@@ -220,11 +338,34 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
   memmove(mem, src, sz);
 }
 
+//assumes physical space is available
+void
+put_in_memory(uint64 va)
+{
+	struct proc *p = myproc();
+
+	// get available page
+	struct page *page = get_available_page();
+	if (!page)
+		panic("put_in_memory: no available page found");
+
+	// set pte flags and page details
+	pte_t *pte = walk(p->pagetable, va, 0);
+	*pte &= ~PTE_PG
+	*pte |= PTE_V;
+	page->state = IN_MEMORY;
+	page->va = va;
+}
+
 // Allocate PTEs and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
 uint64
 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 {
+	#ifndef NONE
+	struct proc *p = myproc();
+	#endif
+
   char *mem;
   uint64 a;
 
@@ -233,6 +374,17 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 
   oldsz = PGROUNDUP(oldsz);
   for(a = oldsz; a < newsz; a += PGSIZE){
+
+		#ifndef NONE
+		if (is_user_proc(p))
+			if (p->count_in_mem + p->count_in_swap == MAX_TOTAL_PAGES || // allocation request exceeds maximum amount
+					(p->count_in_mem == MAX_PSYC_PAGES && swap_out() < 0))   // cannot prepare physical space
+			{
+      	uvmdealloc(pagetable, a, oldsz);
+      	return 0;
+			}
+		#endif
+
     mem = kalloc();
     if(mem == 0){
       uvmdealloc(pagetable, a, oldsz);
@@ -244,6 +396,12 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
       uvmdealloc(pagetable, a, oldsz);
       return 0;
     }
+
+		#ifndef NONE
+		if (is_user_proc(p))
+			put_in_memory(a);
+		#endif
+
   }
   return newsz;
 }
@@ -305,7 +463,7 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
-  pte_t *pte;
+  pte_t *pte, *new_pte;
   uint64 pa, i;
   uint flags;
   char *mem;
@@ -313,14 +471,28 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
+    if((*pte & PTE_V) == 0 && (*pte & PTE_PG) == 0)
       panic("uvmcopy: page not present");
+		if ((*pte & PTE_V) && (*pte & PTE_PG))
+      panic("uvmcopy: bug, pte both in psyc and swap");
+
+
+		if (*pte & PTE_PG) // page is swapped out, needs allocation
+		{
+			if ((new_pte = walk(new, i, 1)) == 0)
+				goto err;
+			*new_pte |= PTE_FLAGS(*pte);
+			continue;
+		}
+
+		// else we found a pa
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
     memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0)
+		{
       kfree(mem);
       goto err;
     }

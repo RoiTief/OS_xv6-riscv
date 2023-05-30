@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct page;
 
 // bio.c
 void            binit(void);
@@ -54,10 +55,10 @@ int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
-int		        createSwapFile(struct proc* p);
+int		        	createSwapFile(struct proc* p);
 int	          	readFromSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size);
-int		        writeToSwapFile(struct proc* p, char* buffer, uint placeOnFile, uint size);
-int		        removeSwapFile(struct proc* p);
+int		        	writeToSwapFile(struct proc* p, char* buffer, uint placeOnFile, uint size);
+int		        	removeSwapFile(struct proc* p);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -87,6 +88,9 @@ void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
 // proc.c
+void						nullify_page_fields(struct page*);
+void						copy_page(struct page*, struct page*);
+int							is_user_proc(struct proc*);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
@@ -165,6 +169,8 @@ void            uartputc_sync(int);
 int             uartgetc(void);
 
 // vm.c
+int 						swap_out();
+int 						swap_int(uint64);
 void            kvminit(void);
 void            kvminithart(void);
 void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
