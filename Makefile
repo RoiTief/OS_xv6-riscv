@@ -57,7 +57,7 @@ OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
 ifndef SWAP_ALGO
-        SWAP_ALGO:=NONE
+        SWAP_ALGO:=SCFIFO
 endif
 
 CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2

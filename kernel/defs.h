@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct page;
 
 // bio.c
 void            binit(void);
@@ -87,6 +88,7 @@ void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
 // proc.c
+void						nullify_page_fields(struct page*);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
@@ -166,6 +168,7 @@ void            uartputc_sync(int);
 int             uartgetc(void);
 
 // vm.c
+void						swap_in_page(uint64);
 void            kvminit(void);
 void            kvminithart(void);
 void            kvmmap(pagetable_t, uint64, uint64, uint64, int);

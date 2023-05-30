@@ -29,27 +29,11 @@ exec(char *path, char **argv)
   struct inode *ip;
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
-  struct page *page;
   struct proc *p = myproc();
 
   if(strncmp(path, "sh", strlen(path)) == 0)
     shell = p;
 
-   #ifndef NONE
-  if(proc_is_not_os(p)){
-    p->psyc_count = 0;
-    p->swap_count = 0;
-    
-    for(page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++){
-      nullify_page_fields(p);
-    }
-    for(page = p->pages_in_swapfile; page < &p->pages_in_swapfile[MAX_SWAP_PAGES]; page++){
-      nullify_page_fields(p);
-    }
-    removeSwapFile(p);
-    createSwapFile(p);
-  }
-  #endif
 
   begin_op();
 
@@ -68,6 +52,23 @@ exec(char *path, char **argv)
 
   if((pagetable = proc_pagetable(p)) == 0)
     goto bad;
+
+   #ifndef NONE
+  if(proc_is_not_os(p)){
+    p->psyc_count = 0;
+    p->swap_count = 0;
+    
+    for(struct page* page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++){
+      nullify_page_fields(page);
+    }
+    for(struct page* page = p->pages_in_swapfile; page < &p->pages_in_swapfile[MAX_SWAP_PAGES]; page++){
+      nullify_page_fields(page);
+    }
+    removeSwapFile(p);
+    createSwapFile(p);
+  }
+  #endif
+
 
   // Load program into memory.
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
@@ -88,6 +89,7 @@ exec(char *path, char **argv)
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
+
   iunlockput(ip);
   end_op();
   ip = 0;

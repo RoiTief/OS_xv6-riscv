@@ -88,7 +88,7 @@ usertrap(void)
 //
 void
 usertrapret(void)
-{break
+{
   struct proc *p = myproc();
 
   // we're about to switch the destination of traps from
@@ -170,14 +170,18 @@ clockintr()
 }
 
 
-int page_fault(uint64 va){
+void 
+page_fault(uint64 va)
+{
 	struct proc *p = myproc();
 	va = PGROUNDDOWN(va);
 	pte_t *pte = walk(p->pagetable, va, 0);
-	if(pte && (*pte & PTE_PG)){
+	if(pte && (*pte & PTE_PG))
+	{
 		swap_in_page(va);
 	}
-	else{
+	else
+	{
 		panic("page_fault: segmentation fault");
 	}
 }
@@ -230,8 +234,11 @@ devintr()
   } else {
 
 	#ifndef NONE
-	if(proc_is_not_os(myproc() && scause == 13 || scaus) == 15 || scause == 12)
-		return page_fault(r_stval());
+	if(proc_is_not_os(myproc()) && (scause == 13 || scause == 15 || scause == 12))
+	{
+		page_fault(r_stval());
+		return 3;
+	}
 	#endif
 		
     return 0;
