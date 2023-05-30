@@ -346,8 +346,6 @@ void swap_out_page(pagetable_t pagetable)
   int to_swap_index;
 
   to_swap_index = get_to_swap_index();
-  if (p->swap_count + p->psyc_count == MAX_TOTAL_PAGES)
-    panic("More pages than MAX_TOTAL_PAGES");
 
   to_swap = &p->pages_in_memory[to_swap_index];
 
@@ -404,6 +402,9 @@ void put_in_memory(uint64 virtual_address, pagetable_t pagetable)
   if (!proc_is_not_os(p))
     return;
 
+  if (p->psyc_count + p->swap_count == MAX_TOTAL_PAGES)
+    panic("put_in_memory: too many pages");
+    
   if (p->psyc_count == MAX_PSYC_PAGES)
     swap_out_page(pagetable);
 
