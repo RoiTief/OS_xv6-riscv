@@ -85,9 +85,8 @@ struct trapframe
 struct page
 {
   int in_use;
-  uint64 age;
   uint64 virtual_address;
-  uint64 creation_order;
+  uint64 time;
 };
 
 enum procstate
@@ -130,6 +129,6 @@ struct proc
   struct page pages_in_swapfile[MAX_SWAP_PAGES];
   int swap_count; // count how manny pages in the swap
   int psyc_count; // count how manny pages in the psyc
-  uint64 creation_time_generator; 
+  uint64 time; 
  
 };

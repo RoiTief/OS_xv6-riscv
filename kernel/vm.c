@@ -243,23 +243,99 @@ void uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
   memmove(mem, src, sz);
 }
 
-// need to implement
-int get_to_swap_index(){
-  #ifdef SCFIFO
-  return get_page_scfifo();
-  #endif
-  #ifdef NFUA
-  return get_page_nfua();
-  #endif
-  #ifdef LAPA
-  return get_page_lapa();
-  #endif
-  #ifdef NONE
-  return 1; //will never got here
-  #endif
+int find_min_time_page_index()
+{
+  struct page *page;
+  struct proc *p = myproc();
+  int min_index = 0;
+  uint64 min_time = (uint64)~0;
+  for (page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++)
+  {
+    if (!page->in_use)
+      return (int)(page - p->pages_in_memory);
+    if (page->time <= min_time)
+    {
+      min_index = (int)(page - p->pages_in_memory);
+      min_time = page->time;
+    }
+  }
+  return min_index;
 }
 
-void move_a_page_to_file(pagetable_t pagetable)
+int count_time_ones(struct page *page)
+{
+  int ones = 0, i = 0;
+  uint64 one = 0;
+  for (i = 0; i < 64; i++)
+  {
+    one = 1 << i;
+    ones = page->time & one ? ones + 1 : ones;
+  }
+  return ones;
+}
+int lapa()
+{
+  struct proc *p = myproc();
+  struct page *page;
+  int min_ones = 100, index = -1, ones = 0;
+  int ;
+  for (page = p->pages_in_memory; page < &p->pages_in_memory[MAX_PSYC_PAGES]; page++)
+  {
+    if (!page->in_use)
+      return (int)(page - p->pages_in_memory);
+
+    ones = count_time_ones(page);
+    if (ones < min_ones || (min_ones == ones &&  page->time < p->pages_in_memory[index].time))
+    {
+      min_ones = ones;
+      index = (int)(page - p->pages_in_memory);
+    }
+  }
+  return index;
+}
+
+int scfifo()
+{
+  struct proc *p = myproc();
+  int min_index = 0;
+  pte_t *pte;
+
+  for (;;)
+  {
+    min_index = find_min_time_page_index();
+
+    pte = walk(p->pagetable, p->pages_in_memory[min_index].virtual_address, 0);
+    if (*pte & PTE_A)
+    {
+      p->time++;
+      p->pages_in_memory[min_index].time = p->time; // so he will be last
+      *pte &= ~PTE_A;
+    }
+    else
+      return min_index;
+  }
+}
+
+int nfua()
+{
+  return find_min_time_page_index();
+}
+
+// need to implement
+int get_to_swap_index()
+{
+#ifdef SCFIFO
+  return scfifo();
+#endif
+#ifdef NFUA
+  return nfua();
+#endif
+#ifdef LAPA
+  return lapa();
+#endif
+}
+
+void swap_out_page(pagetable_t pagetable)
 {
   struct proc *p = myproc();
   struct page *to_swap;
@@ -329,20 +405,21 @@ void put_in_memory(uint64 virtual_address, pagetable_t pagetable)
     return;
 
   if (p->psyc_count == MAX_PSYC_PAGES)
-    move_a_page_to_file(pagetable);
+    swap_out_page(pagetable);
 
   p->psyc_count++;
 
   int available_page_index = get_available_memory_entry_index(p);
   page = &p->pages_in_memory[available_page_index];
 #ifdef NFUA
-  page->age = 0;
+  page->time = 0;
 #endif
 #ifdef LAPA
-  page->age = (uint64)~0;
+  page->time = (uint64)~0;
 #endif
 #ifdef SCFIFO
-  page->creationOrder = ++p->creationTimeGenerator;
+  p->time = p->time + 1;
+  page->time = p->time;
 #endif
 
   pte_t *pte = walk(pagetable, page->virtual_address, 0);
@@ -460,12 +537,13 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if ((*pte & PTE_V) == 1 && (*pte & PTE_IN_SWAP_MEM) == 1)
       panic("uvmcopy: bug, pte both in psyc and swap");
 
-      if((*pte & PTE_IN_SWAP_MEM) == 1){
+    if ((*pte & PTE_IN_SWAP_MEM) == 1)
+    {
       new_pte = walk(new, i, 1);
       *new_pte |= PTE_FLAGS(*pte);
       continue;
-      }
-      
+    }
+
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if ((mem = kalloc()) == 0)

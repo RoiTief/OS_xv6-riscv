@@ -18,6 +18,8 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
+struct proc * shell
+
 extern char trampoline[]; // trampoline.S
 
 // helps ensure that wakeups of wait()ing
@@ -159,15 +161,14 @@ found:
 void nullify_page_fields(struct page *page)
 {
   page->in_use = 0;
-  page->age = 0;
   page->virtual_address = 0;
-  page->creation_order = 0;
+  page->time = 0;
 }
 
-// not scheduler shell
+// not an kernel base process
 proc_is_not_os(struct proc *p)
 {
-  return p->pid > 2;
+  return p != initproc  && p != shell;
 }
 
 // free a proc structure and the data hanging from it,
@@ -194,7 +195,7 @@ freeproc(struct proc *p)
 
     p->psyc_count = 0;
     p->swap_count = 0;
-    p->creation_time_generator = 0;
+    p->time = 0;
   }
 #endif
   p->pagetable = 0;
@@ -208,7 +209,7 @@ freeproc(struct proc *p)
   p->state = UNUSED;
   p->psyc_count = 0;
   p->swap_count = 0;
-  p->creation_time_generator = 0;
+  p->time = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -319,7 +320,6 @@ void copy_page_state(struct page *from, struct page *to)
 {
   to->virtual_address = from->virtual_address;
   to->in_use = from->in_use;
-  to->age = from->age;
 }
 
 void fork_memory(struct proc *np)
@@ -333,7 +333,7 @@ void fork_memory(struct proc *np)
   {
     np->swap_count = p->swap_count;
     np->psyc_count = p->psyc_count;
-    np->creation_time_generator = p->creation_time_generator;
+    np->time = p->time;
 
     // coping the swap file
     char *buffer = kalloc();
