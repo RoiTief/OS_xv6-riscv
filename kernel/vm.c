@@ -186,10 +186,100 @@ get_page_with(uint64 va)
 	return 0;
 }
 
+// this function is called from the scheduler.
+void
+update_time(struct proc *p){
+  pte_t* pte;
+  for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++){
+    if(page->state != IN_MEMORY)
+      continue;
+
+      pte = walk(p->pagetable, page->va, 0);
+
+      page->time = (page->time >> 1);
+      if(*pte & PTE_A){
+        page->time |= (1 << 63); 
+        *pte &= ~PTE_A; //turn off access 
+      }
+    }
+}
+
+struct page*
+get_lowest_time_page(struct proc *p){
+  uint64 min_time = ~0;
+  struct page* min_page = 0;
+  for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
+    if(page->state == IN_MEMORY && page->time < min_time)
+      min_page = page;
+
+  return min_page;
+}
+
+// return the page to swap by nfua algorithm
+struct page*
+get_page_by_nfua(struct proc *p){
+  return get_lowest_time_page(p);
+}
+
+int
+calc_num_of_ones(int num){
+  int num_of_ones = 0;
+  while(num){
+    num_of_ones = num % 2 ? num_of_ones + 1 : num_of_ones;
+    num /= 2;
+  }
+  return num_of_ones;
+}
+// return the page to swap by lapa algorithm
+struct page*
+get_page_by_lapa(struct proc *p){
+  struct page* to_swap = 0;
+  int min_ones = 65; // maximum possible is 64
+  for (struct page* page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; p++){
+    if(page->state != IN_MEMORY)
+      continue;
+
+    int page_ones = calc_num_of_ones(page->time);
+    if(page_ones > min_ones || (page_ones == min_ones && page->time < to_swap->time)) {
+      to_swap = page;
+      min_ones = page_ones;
+    }
+  }
+  return to_swap;
+}
+
+// return the page to swap by scfifo algorithm
+struct page*
+get_page_by_scfifo(struct proc *p){
+  struct page* page;
+  pte_t* pte;
+
+  for(;;){
+    page = get_lowest_time_page(p);
+    pte = walk(p->pagetable, page->va, 0);
+    if(!(*pte & PTE_A))
+      return page;
+
+    // if I got here that means I need to put page in the end of the queue
+    page->time = ++p->time_counter;
+  }
+}
+
 struct page*
 get_page_to_swap_for(struct proc *p)
 {
-	// TODO: insert calls to algorithms based on make parameter.
+	#ifdef NONE
+  return 0; // defualt value
+  #endif
+  #ifdef NFUA
+  return get_page_by_nfua(p)  ;
+  #endif
+  #ifdef LAPA
+  return get_page_by_lapa(p) ;
+  #endif
+  #ifdef SCFIFO
+  return get_page_by_scfifo(p) ;
+  #endif
 }
 
 int
@@ -223,6 +313,24 @@ swap_out()
 	sfence_vma();
 
 	return 0;
+}
+
+void
+init_swaped_in_page(struct page* page){
+  page->state = IN_MEMORY; // I know that you assign it before, I dont want to touch your code to much, and it is should be here.
+  #ifdef NONE
+  return // nothing to do, I thought about putting pubic but I think it is overkill...
+  #endif
+  #ifdef NFUA
+  page->time = 0;  
+  #endif
+  #ifdef LAPA
+  page->time = (uint64)(~0);  
+  #endif
+  #ifdef SCFIFO
+  struct proc* p = myproc();
+  page->time = ++p->time_counter; // first update the p->time_counter than assign
+  #endif
 }
 
 int
@@ -264,6 +372,7 @@ swap_in(uint64 va)
 	to_swap->state = IN_MEMORY;
 	p->count_in_mem++;
 	p->count_in_swap--;
+  init_swaped_in_page(to_swap);
 
 	return 0;
 }
@@ -345,6 +454,8 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
   memmove(mem, src, sz);
 }
 
+
+
 //assumes physical space is available
 void
 put_in_memory(uint64 va)
@@ -362,6 +473,7 @@ put_in_memory(uint64 va)
 	*pte |= PTE_V;
 	page->state = IN_MEMORY;
 	page->va = va;
+  init_swaped_in_page(page);
 }
 
 // Allocate PTEs and physical memory to grow process from oldsz to

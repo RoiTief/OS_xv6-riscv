@@ -35,6 +35,7 @@ exec(char *path, char **argv)
 	// prepare recovery if somethins goes to 'bad'
 	int recovery_in_mem = p->count_in_mem;
 	int recovery_in_swap = p->count_in_swap;
+  int recovery_conter = p->time_counter;
 	struct page recovery_pages[MAX_TOTAL_PAGES];
 	if (is_user_proc(p))
 	{
@@ -66,6 +67,7 @@ exec(char *path, char **argv)
 	#ifndef NONE
 	p->count_in_mem = 0;
 	p->count_in_swap = 0;
+  p->time_counter = 0;
 	if (is_user_proc(p))
 	{
 		for (struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
@@ -168,11 +170,12 @@ exec(char *path, char **argv)
 	// recovery 
 	p->count_in_mem = recovery_in_mem;
 	p->count_in_swap = recovery_in_swap;
+  p->time_counter = recovery_conter;
 	if (is_user_proc(p))
 	{
 		for (int i = 0; i < MAX_TOTAL_PAGES; i++)
 		{
-			copy_page(&recovery_pages[i], &p->pages[i]);
+			copy_page_state(&recovery_pages[i], &p->pages[i]);
 		}
 	}
 	#endif

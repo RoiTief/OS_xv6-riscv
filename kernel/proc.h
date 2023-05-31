@@ -87,6 +87,7 @@ enum pagestate { AVAILABLE, IN_MEMORY, SWAPPED_OUT };
 struct page {
 	enum pagestate state = AVAILABLE;
 	uint64 va = 0;
+  uint64 time = 0;
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
@@ -120,4 +121,5 @@ struct proc {
 	struct page pages[MAX_TOTAL_PAGES];
 	int count_in_mem = 0;
 	int count_in_swap = 0;
+  uint64 time_counter = 0;
 };

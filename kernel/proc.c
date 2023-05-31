@@ -154,6 +154,7 @@ found:
 	}
 	p->count_in_mem = 0;
 	p->count_in_swap = 0;
+  p->time_counter = 0;
 	#ifdef
 
   return p;
@@ -295,6 +296,7 @@ nullify_page_fields(struct page *page)
 {
 	page->state = AVAILABLE;
 	page->va = 0;
+  page->time = 0;
 }
 
 void
@@ -302,6 +304,7 @@ copy_page_state(struct page *to_copy, struct page *copy)
 {
 	copy->state = to_copy->state;
 	copy->va = to_copy->va;
+  copy->time = to_copy->time;
 }
 
 int
@@ -543,7 +546,13 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
         swtch(&c->context, &p->context);
+
+        // I put it after the swtch because if I swaped in a page I want its time to set to the max so he wont be swap.
+        #if defined(NFUA) || defined(LAPA)
+          update_time(p);
+        #endif
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
