@@ -496,9 +496,10 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
   for(a = oldsz; a < newsz; a += PGSIZE){
 
 		#ifndef NONE
-		if (is_user_proc(p))
-			if (p->count_in_mem + p->count_in_swap == MAX_TOTAL_PAGES || // allocation request exceeds maximum amount
-					(p->count_in_mem == MAX_PSYC_PAGES && swap_out() < 0))   // cannot prepare physical space
+		if (is_user_proc(p) &&
+			  (p->count_in_mem + p->count_in_swap == MAX_TOTAL_PAGES || // allocation request exceeds maximum amount
+				 (p->count_in_mem == MAX_PSYC_PAGES && swap_out() < 0))   // cannot prepare physical space
+			 )
 			{
       	uvmdealloc(pagetable, a, oldsz);
       	return 0;
