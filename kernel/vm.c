@@ -207,7 +207,7 @@ swap_out()
 
 	// write to swapfile
 	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0)
-	uint64 pa = PTE2PA;
+	uint64 pa = PTE2PA(*pte);
 	if (writeToSwapFile(p, (char *)pa, offset, PGSIZE) == -1)
 		return -1;
 
@@ -237,6 +237,11 @@ swap_in(uint64 va)
 		panic("swap_in: couldn't find a page corresponding to given va");
 	if (to_swap->state != SWAPPED_OUT)
 		panic("swap_in: found page is not SWAPPED_OUT");
+
+	// make sure process has enough space in physical memory
+	if (p->count_in_mem == MAX_PHYS_PAGES && 
+			swap_out() < 0)
+			return -1;
 	
 	//allocate new page in physical memory 
 	void *new_page = kalloc();
@@ -253,10 +258,12 @@ swap_in(uint64 va)
 	pte_t *pte = walk(p->pagetable, va, 0);
 	*pte = PA2PTE(((uint64)new_page)) | PTE_FLAGS(*pte);
 
-	// fix pte and page state
+	// fix pte and page state and counters
 	*pte &= ~PTE_PG;
 	*pte |= PTE_V;
 	to_swap->state = IN_MEMORY;
+	p->count_in_mem++;
+	p->count_in_swap--;
 
 	return 0;
 }

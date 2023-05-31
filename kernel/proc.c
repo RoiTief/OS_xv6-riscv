@@ -298,7 +298,7 @@ nullify_page_fields(struct page *page)
 }
 
 void
-copy_page(struct page *to_copy, struct page *copy)
+copy_page_state(struct page *to_copy, struct page *copy)
 {
 	copy->state = to_copy->state;
 	copy->va = to_copy->va;
@@ -315,7 +315,7 @@ fork_pages(struct proc *parent, struct proc *child)
 	}
 
 	// copy parent's pages
-  if (is_user_proc(p))
+  if (is_user_proc(parent))
   {
 		child->count_in_mem = parent->count_in_mem;
     child->count_in_swap = parent->count_in_swap;
@@ -382,7 +382,7 @@ fork(void)
   pid = np->pid;
 
 	#ifndef NONE
-	if (fork_paging(p, np) < 0)
+	if (fork_pages(p, np) < 0)
 	{
 		freeproc(np);
 		release(&np->lock);
