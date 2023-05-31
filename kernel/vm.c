@@ -191,15 +191,16 @@ void
 update_time(struct proc *p){
   pte_t* pte;
   for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++){
-    if(page->state != IN_MEMORY)
+    if(page->state != IN_MEMORY){
       continue;
+    }
 
       pte = walk(p->pagetable, page->va, 0);
 
       page->time = (page->time >> 1);
       if(*pte & PTE_A){
-        page->time |= (1 << 63); 
-        *pte &= ~PTE_A; //turn off access 
+        page->time |= 0x8000000000000000; // the compiler want allow(1 << 63) ; 
+        (*pte) &= ~PTE_A; //turn off access 
       }
     }
 }
@@ -296,7 +297,7 @@ swap_out()
 	uint offset = (to_swap - p->pages) * PGSIZE;
 
 	// write to swapfile
-	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0)
+	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0);
 	uint64 pa = PTE2PA(*pte);
 	if (writeToSwapFile(p, (char *)pa, offset, PGSIZE) == -1)
 		return -1;
@@ -304,7 +305,7 @@ swap_out()
 	// fix states and counters
 	*pte &= ~PTE_V;
 	*pte |= PTE_PG;
-	page->state = SWAPPED_OUT;
+	to_swap->state = SWAPPED_OUT;
 	p->count_in_mem--;
 	p->count_in_swap++;
 
@@ -319,7 +320,7 @@ void
 init_swaped_in_page(struct page* page){
   page->state = IN_MEMORY; // I know that you assign it before, I dont want to touch your code to much, and it is should be here.
   #ifdef NONE
-  return // nothing to do, I thought about putting pubic but I think it is overkill...
+  return ;// nothing to do, I thought about putting pubic but I think it is overkill...
   #endif
   #ifdef NFUA
   page->time = 0;  
@@ -347,7 +348,7 @@ swap_in(uint64 va)
 		panic("swap_in: found page is not SWAPPED_OUT");
 
 	// make sure process has enough space in physical memory
-	if (p->count_in_mem == MAX_PHYS_PAGES && 
+	if (p->count_in_mem == MAX_PSYC_PAGES && 
 			swap_out() < 0)
 			return -1;
 	
@@ -385,7 +386,6 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
   uint64 a;
   pte_t *pte;
-
   if((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
 
@@ -405,6 +405,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 		#endif
 
 		#ifndef NONE
+    struct proc *p = myproc();
   	struct page *page = get_page_with(a);
     // if va in memory, delete it
     if (do_free && page->state == IN_MEMORY)
@@ -469,7 +470,7 @@ put_in_memory(uint64 va)
 
 	// set pte flags and page details
 	pte_t *pte = walk(p->pagetable, va, 0);
-	*pte &= ~PTE_PG
+	*pte &= ~PTE_PG;
 	*pte |= PTE_V;
 	page->state = IN_MEMORY;
 	page->va = va;

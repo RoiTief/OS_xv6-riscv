@@ -232,7 +232,7 @@ devintr()
     return 2;
 	
 	#ifndef NONE
-	} else if (scause == (uint64) 12 || scause == (uint64) 13 || scauce == (uint64) 15) {
+	} else if (scause == (uint64) 12 || scause == (uint64) 13 || scause == (uint64) 15) {
 		page_fault(r_stval());
 		return 3;
 	#endif

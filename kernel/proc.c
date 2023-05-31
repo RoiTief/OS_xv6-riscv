@@ -148,14 +148,15 @@ found:
 
 	#ifndef NONE
 	// paging - reset
-	for (struct page* page = p->pages; page < p->pages[MAX_TOTAL_PAGES]; page++)
+	for (struct page* page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
 	{
 		nullify_page_fields(page);
 	}
+  p->swapFile = 0;
 	p->count_in_mem = 0;
 	p->count_in_swap = 0;
   p->time_counter = 0;
-	#ifdef
+	#endif
 
   return p;
 }

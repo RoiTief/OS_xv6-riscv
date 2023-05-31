@@ -36,12 +36,13 @@ exec(char *path, char **argv)
 	int recovery_in_mem = p->count_in_mem;
 	int recovery_in_swap = p->count_in_swap;
   int recovery_conter = p->time_counter;
+  // we may need here a recovery for the swap_page;
 	struct page recovery_pages[MAX_TOTAL_PAGES];
 	if (is_user_proc(p))
 	{
 		for (int i = 0; i < MAX_TOTAL_PAGES; i++)
 		{
-			copy_page(&p->pages[i], &recovery_pages[i]);
+			copy_page_state(&p->pages[i], &recovery_pages[i]);
 		}
 	}
 	#endif
