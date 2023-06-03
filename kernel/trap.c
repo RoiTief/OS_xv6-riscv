@@ -175,13 +175,14 @@ page_fault(uint64 va)
 	struct proc *p = myproc();
 	
 	if (!is_user_proc(p))
-		panic("page_fault: os proc had page fault");
+		return;
 	
 	va = PGROUNDDOWN(va);
 	pte_t *pte = walk(p->pagetable, va, 0);
 	if (!pte || (*pte & PTE_PG) == 0)
 		panic("page_fault: segmentation fault");
 
+  swap_out();
 	swap_in(va);
 }
 

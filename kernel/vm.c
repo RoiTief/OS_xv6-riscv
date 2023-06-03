@@ -15,6 +15,8 @@ pagetable_t kernel_pagetable;
 
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
+extern struct proc proc[];
+
 extern char trampoline[]; // trampoline.S
 
 // Make a direct-map page table for the kernel.
@@ -209,9 +211,13 @@ struct page*
 get_lowest_time_page(struct proc *p){
   uint64 min_time = ~0;
   struct page* min_page = 0;
-  for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
+  for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++){
+    if(page->state != AVAILABLE && p->count_in_mem < MAX_PSYC_PAGES)
+      return page;
+
     if(page->state == IN_MEMORY && page->time < min_time)
       min_page = page;
+      }
 
   return min_page;
 }
@@ -237,6 +243,9 @@ get_page_by_lapa(struct proc *p){
   struct page* to_swap = 0;
   int min_ones = 65; // maximum possible is 64
   for (struct page* page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; p++){
+    if(page->state != AVAILABLE && p->count_in_mem < MAX_PSYC_PAGES)
+      return page;
+
     if(page->state != IN_MEMORY)
       continue;
 
@@ -257,6 +266,9 @@ get_page_by_scfifo(struct proc *p){
 
   for(;;){
     page = get_lowest_time_page(p);
+    if(page->state == AVAILABLE)
+      return page;
+
     pte = walk(p->pagetable, page->va, 0);
     if(!(*pte & PTE_A))
       return page;
@@ -284,20 +296,24 @@ get_page_to_swap_for(struct proc *p)
 }
 
 int
-swap_out()
+swap_out(void)
 {
 	struct proc *p = myproc();
-
+  printf("swap out from proc %s", p->name);
 	// find a page to swap out based on algorithm
 	struct page *to_swap = get_page_to_swap_for(p);
 	if (!to_swap)
 		panic("swap_out: couldn't find a page to swap out");
+
+  if(to_swap->state == AVAILABLE) // there is a free page
+    return 0;
 
 	// calculate its offset in swapfile
 	uint offset = (to_swap - p->pages) * PGSIZE;
 
 	// write to swapfile
 	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0);
+
 	uint64 pa = PTE2PA(*pte);
 	if (writeToSwapFile(p, (char *)pa, offset, PGSIZE) == -1)
 		return -1;
@@ -339,7 +355,7 @@ swap_in(uint64 va)
 {
 	struct proc *p = myproc();
 	va = PGROUNDDOWN(va);
-
+  printf("swap in from proc %s", p->name);
 	// find the swapped out page corresponding to 'va'
 	struct page *to_swap = get_page_with(va);
 	if (!to_swap)
@@ -397,21 +413,22 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
 
-		#ifdef NONE
-    if(do_free){
+		
+    if(do_free && (*pte & PTE_V)){
       uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
-		#endif
+		
 
 		#ifndef NONE
-    struct proc *p = myproc();
   	struct page *page = get_page_with(a);
+    struct proc * p = myproc();
+
+    if ((do_free && is_user_proc(p) && pagetable == p->pagetable)){
+      
     // if va in memory, delete it
     if (do_free && page->state == IN_MEMORY)
 		{
-			uint64 pa = PTE2PA(*pte);
-			kfree((void*)pa);
     	nullify_page_fields(page);
     	p->count_in_mem--;
     } 
@@ -420,6 +437,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     	nullify_page_fields(page);
     	p->count_in_swap--;
 		}
+    }
 		#endif
 
     *pte = 0;
@@ -463,6 +481,7 @@ put_in_memory(uint64 va)
 {
 	struct proc *p = myproc();
 
+  printf("put in memory from proc %s", p->name);
 	// get available page
 	struct page *page = get_available_page();
 	if (!page)

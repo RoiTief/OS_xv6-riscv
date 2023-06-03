@@ -9,6 +9,9 @@
 
 static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
 
+extern struct proc * shellproc;
+extern int start_paging;
+
 int flags2perm(int flags)
 {
     int perm = 0;
@@ -32,12 +35,17 @@ exec(char *path, char **argv)
   struct proc *p = myproc();
 
 	#ifndef NONE
+  
 	// prepare recovery if somethins goes to 'bad'
 	int recovery_in_mem = p->count_in_mem;
 	int recovery_in_swap = p->count_in_swap;
   int recovery_conter = p->time_counter;
   // we may need here a recovery for the swap_page;
 	struct page recovery_pages[MAX_TOTAL_PAGES];
+  if (strncmp(path, "sh", strlen(path)) == 0){
+    shellproc = p;
+    start_paging = 1;
+  }
 	if (is_user_proc(p))
 	{
 		for (int i = 0; i < MAX_TOTAL_PAGES; i++)
@@ -172,7 +180,7 @@ exec(char *path, char **argv)
 	p->count_in_mem = recovery_in_mem;
 	p->count_in_swap = recovery_in_swap;
   p->time_counter = recovery_conter;
-	if (is_user_proc(p))
+	if (is_user_proc(p) || strncmp(path, "sh", strlen(path)))
 	{
 		for (int i = 0; i < MAX_TOTAL_PAGES; i++)
 		{

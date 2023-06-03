@@ -11,6 +11,8 @@ struct cpu cpus[NCPU];
 struct proc proc[NPROC];
 
 struct proc *initproc;
+struct proc *shellproc;
+int start_paging = 0;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -181,6 +183,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->swapFile = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -289,7 +292,7 @@ growproc(int n)
 int 
 is_user_proc(struct proc* p)
 {
-	return p->pid > 2 ? 1 : 0;
+	return !(p == initproc || p == shellproc);
 }
 
 void
@@ -311,12 +314,14 @@ copy_page_state(struct page *to_copy, struct page *copy)
 int
 fork_pages(struct proc *parent, struct proc *child)
 {
-	// create swapfile
-  if (is_user_proc(child))
-	{
-    if (createSwapFile(child) < 0)
-			return -1;
-	}
+    if (start_paging && createSwapFile(child) != 0)
+			{
+        acquire(&child->lock);
+        freeproc(child);
+        release(&child->lock);
+        return -1;
+      }
+	
 
 	// copy parent's pages
   if (is_user_proc(parent))
@@ -332,15 +337,19 @@ fork_pages(struct proc *parent, struct proc *child)
     	// coping the swap file
 			if (parent->pages[i].state == SWAPPED_OUT)
 			{
-    		char *buff = kalloc();
-				if (readFromSwapFile(parent, buff, i * PGSIZE, PGSIZE) < 0 ||
+    
+				if (readFromSwapFile(parent, buffer, i * PGSIZE, PGSIZE) < 0 ||
 						writeToSwapFile(child, buffer, i * PGSIZE, PGSIZE) < 0)
 				{
-    			kfree(buffer);
-					return -1;
+    			removeSwapFile(child);
+            acquire(&child->lock);
+            freeproc(child);
+            release(&child->lock);
+            return -1;
 				}
 			}
     }
+    kfree(buffer);
   }
 
 	// all is well
@@ -385,16 +394,16 @@ fork(void)
 
   pid = np->pid;
 
-	#ifndef NONE
-	if (fork_pages(p, np) < 0)
+  release(&np->lock);
+
+  #ifndef NONE
+	if (start_paging && fork_pages(p, np) < 0)
 	{
 		freeproc(np);
 		release(&np->lock);
 		return -1;
 	}
 	#endif
-
-  release(&np->lock);
 
   acquire(&wait_lock);
   np->parent = p;
@@ -463,8 +472,16 @@ exit(int status)
   release(&wait_lock);
 
 	#ifndef NONE
-	if (is_user_proc(p))
-		removeSwapFile(p);
+	if (is_user_proc(p)){
+      removeSwapFile(p);
+      p->swapFile = 0;
+      p->time_counter = 0;
+      p->count_in_mem = 0;
+      p->count_in_swap = 0;
+
+      for(struct page * page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
+        nullify_page_fields(page);
+    }
 	#endif
 
   // Jump into the scheduler, never to return.
