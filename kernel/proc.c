@@ -95,7 +95,6 @@ int
 allocpid()
 {
   int pid;
-  
   acquire(&pid_lock);
   pid = nextpid;
   nextpid = nextpid + 1;
@@ -316,9 +315,6 @@ fork_pages(struct proc *parent, struct proc *child)
 {
     if (start_paging && createSwapFile(child) != 0)
 			{
-        acquire(&child->lock);
-        freeproc(child);
-        release(&child->lock);
         return -1;
       }
 	
@@ -341,10 +337,7 @@ fork_pages(struct proc *parent, struct proc *child)
 				if (readFromSwapFile(parent, buffer, i * PGSIZE, PGSIZE) < 0 ||
 						writeToSwapFile(child, buffer, i * PGSIZE, PGSIZE) < 0)
 				{
-    			removeSwapFile(child);
-            acquire(&child->lock);
-            freeproc(child);
-            release(&child->lock);
+    			removeSwapFile(child);;
             return -1;
 				}
 			}
@@ -399,6 +392,7 @@ fork(void)
   #ifndef NONE
 	if (start_paging && fork_pages(p, np) < 0)
 	{
+    acquire(&np->lock);
 		freeproc(np);
 		release(&np->lock);
 		return -1;
@@ -451,27 +445,7 @@ exit(int status)
     }
   }
 
-  begin_op();
-  iput(p->cwd);
-  end_op();
-  p->cwd = 0;
-
-  acquire(&wait_lock);
-
-  // Give any children to init.
-  reparent(p);
-
-  // Parent might be sleeping in wait().
-  wakeup(p->parent);
-  
-  acquire(&p->lock);
-
-  p->xstate = status;
-  p->state = ZOMBIE;
-
-  release(&wait_lock);
-
-	#ifndef NONE
+  #ifndef NONE
 	if (is_user_proc(p)){
       removeSwapFile(p);
       p->swapFile = 0;
@@ -483,6 +457,22 @@ exit(int status)
         nullify_page_fields(page);
     }
 	#endif
+
+  begin_op();
+  iput(p->cwd);
+  end_op();
+  p->cwd = 0;
+  acquire(&wait_lock);
+  // Give any children to init.
+  reparent(p);
+
+  // Parent might be sleeping in wait().
+  wakeup(p->parent);
+  acquire(&p->lock);
+  p->xstate = status;
+  p->state = ZOMBIE;
+
+  release(&wait_lock);
 
   // Jump into the scheduler, never to return.
   sched();
@@ -497,9 +487,7 @@ wait(uint64 addr)
   struct proc *pp;
   int havekids, pid;
   struct proc *p = myproc();
-
   acquire(&wait_lock);
-
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
@@ -653,7 +641,6 @@ sleep(void *chan, struct spinlock *lk)
   // guaranteed that we won't miss any wakeup
   // (wakeup locks p->lock),
   // so it's okay to release lk.
-
   acquire(&p->lock);  //DOC: sleeplock1
   release(lk);
 
@@ -725,7 +712,6 @@ int
 killed(struct proc *p)
 {
   int k;
-  
   acquire(&p->lock);
   k = p->killed;
   release(&p->lock);
