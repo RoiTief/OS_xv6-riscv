@@ -299,7 +299,6 @@ int
 swap_out(void)
 {
 	struct proc *p = myproc();
-  printf("swap out from proc %s", p->name);
 	// find a page to swap out based on algorithm
 	struct page *to_swap = get_page_to_swap_for(p);
 	if (!to_swap)
@@ -355,7 +354,6 @@ swap_in(uint64 va)
 {
 	struct proc *p = myproc();
 	va = PGROUNDDOWN(va);
-  printf("swap in from proc %s", p->name);
 	// find the swapped out page corresponding to 'va'
 	struct page *to_swap = get_page_with(va);
 	if (!to_swap)
@@ -481,7 +479,6 @@ put_in_memory(uint64 va)
 {
 	struct proc *p = myproc();
 
-  printf("put in memory from proc %s", p->name);
 	// get available page
 	struct page *page = get_available_page();
 	if (!page)
@@ -516,7 +513,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 
 		#ifndef NONE
 		if (is_user_proc(p))
-			if (p->count_in_mem + p->count_in_swap == MAX_TOTAL_PAGES || // allocation request exceeds maximum amount
+			if (!get_available_page() || // allocation request exceeds maximum amount
 					(p->count_in_mem == MAX_PSYC_PAGES && swap_out() < 0))   // cannot prepare physical space
 			{
       	uvmdealloc(pagetable, a, oldsz);
