@@ -812,6 +812,12 @@ createSwapFile(struct proc* p)
   p->swapFile->writable = O_RDWR;
     end_op();
 
+
+  void *null_buffer = kalloc();
+  memset(null_buffer, 0, PGSIZE);
+	for (int i = 0; i < MAX_TOTAL_PAGES; i++)
+		writeToSwapFile(p, null_buffer, i * PGSIZE, PGSIZE);
+
     return 0;
 }
 

@@ -299,7 +299,7 @@ int
 swap_out(void)
 {
 	struct proc *p = myproc();
-  printf("swap out from proc %s", p->name);
+  printf("swap_out from proc '%d'\n", p->pid);
 	// find a page to swap out based on algorithm
 	struct page *to_swap = get_page_to_swap_for(p);
 	if (!to_swap)
@@ -315,8 +315,10 @@ swap_out(void)
 	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0);
 
 	uint64 pa = PTE2PA(*pte);
+  printf("swap_out from proc '%d' --- write start\n", p->pid);
 	if (writeToSwapFile(p, (char *)pa, offset, PGSIZE) == -1)
 		return -1;
+  printf("swap_out from proc '%d' --- write end\n", p->pid);
 
 	// fix states and counters
 	*pte &= ~PTE_V;
@@ -355,7 +357,7 @@ swap_in(uint64 va)
 {
 	struct proc *p = myproc();
 	va = PGROUNDDOWN(va);
-  printf("swap in from proc %s", p->name);
+  printf("swap_in from proc '%d'\n", p->pid);
 	// find the swapped out page corresponding to 'va'
 	struct page *to_swap = get_page_with(va);
 	if (!to_swap)
@@ -481,7 +483,7 @@ put_in_memory(uint64 va)
 {
 	struct proc *p = myproc();
 
-  printf("put in memory from proc %s", p->name);
+  printf("put_in_memory from proc '%d', count_in_mem=%d\n", p->pid, p->count_in_mem);
 	// get available page
 	struct page *page = get_available_page();
 	if (!page)
@@ -493,6 +495,8 @@ put_in_memory(uint64 va)
 	*pte |= PTE_V;
 	page->state = IN_MEMORY;
 	page->va = va;
+
+	p->count_in_mem++;
   init_swaped_in_page(page);
 }
 
@@ -516,12 +520,15 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 
 		#ifndef NONE
 		if (is_user_proc(p))
+		{
+//			printf("uvmalloc: proc='%d', count_in_mem=%d, count_in_swap=%d\n", p->pid, p->count_in_mem, p->count_in_swap);
 			if (p->count_in_mem + p->count_in_swap == MAX_TOTAL_PAGES || // allocation request exceeds maximum amount
 					(p->count_in_mem == MAX_PSYC_PAGES && swap_out() < 0))   // cannot prepare physical space
 			{
       	uvmdealloc(pagetable, a, oldsz);
       	return 0;
 			}
+		}
 		#endif
 
     mem = kalloc();

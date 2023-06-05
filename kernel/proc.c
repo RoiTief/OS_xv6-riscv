@@ -313,10 +313,9 @@ copy_page_state(struct page *to_copy, struct page *copy)
 int
 fork_pages(struct proc *parent, struct proc *child)
 {
-    if (start_paging && createSwapFile(child) != 0)
-			{
-        return -1;
-      }
+	printf("fork_pages from '%d' to '%d' --- start\n", parent->pid, child->pid);
+  if (start_paging && createSwapFile(child) < 0)
+    return -1;
 	
 
 	// copy parent's pages
@@ -346,6 +345,7 @@ fork_pages(struct proc *parent, struct proc *child)
   }
 
 	// all is well
+	printf("fork_pages from '%d' to '%d' --- end\n", parent->pid, child->pid);
 	return 0;
 }
 
