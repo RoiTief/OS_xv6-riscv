@@ -244,14 +244,11 @@ get_page_by_lapa(struct proc *p){
   struct page* to_swap = 0;
   int min_ones = 65; // maximum possible is 64
   for (struct page* page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; p++){
-    if(page->state != AVAILABLE && p->count_in_mem < MAX_PSYC_PAGES)
-      return page;
-
     if(page->state != IN_MEMORY)
       continue;
 
     int page_ones = calc_num_of_ones(page->time);
-    if(page_ones > min_ones || (page_ones == min_ones && page->time < to_swap->time)) {
+    if(page_ones < min_ones || (page_ones == min_ones && page->time < to_swap->time)) {
       to_swap = page;
       min_ones = page_ones;
     }
