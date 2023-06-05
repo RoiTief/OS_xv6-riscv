@@ -211,13 +211,14 @@ struct page*
 get_lowest_time_page(struct proc *p){
   uint64 min_time = ~0;
   struct page* min_page = 0;
-  for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++){
-    if(page->state != AVAILABLE && p->count_in_mem < MAX_PSYC_PAGES)
-      return page;
-
-    if(page->state == IN_MEMORY && page->time < min_time)
+  
+	for(struct page *page = p->pages; page < &p->pages[MAX_TOTAL_PAGES]; page++)
+	{
+    if(page->state != IN_MEMORY)
+      continue;
+    if(page->time < min_time)
       min_page = page;
-      }
+  }
 
   return min_page;
 }
@@ -266,15 +267,13 @@ get_page_by_scfifo(struct proc *p){
 
   for(;;){
     page = get_lowest_time_page(p);
-    if(page->state == AVAILABLE)
-      return page;
-
     pte = walk(p->pagetable, page->va, 0);
     if(!(*pte & PTE_A))
       return page;
 
     // if I got here that means I need to put page in the end of the queue
     page->time = ++p->time_counter;
+		*pte &= ~PTE_A;
   }
 }
 
@@ -315,10 +314,8 @@ swap_out(void)
 	pte_t *pte = walk(p->pagetable, PGROUNDDOWN(to_swap->va), 0);
 
 	uint64 pa = PTE2PA(*pte);
-  printf("swap_out from proc '%d' --- write start\n", p->pid);
 	if (writeToSwapFile(p, (char *)pa, offset, PGSIZE) == -1)
 		return -1;
-  printf("swap_out from proc '%d' --- write end\n", p->pid);
 
 	// fix states and counters
 	*pte &= ~PTE_V;

@@ -313,7 +313,6 @@ copy_page_state(struct page *to_copy, struct page *copy)
 int
 fork_pages(struct proc *parent, struct proc *child)
 {
-	printf("fork_pages from '%d' to '%d' --- start\n", parent->pid, child->pid);
   if (start_paging && createSwapFile(child) < 0)
     return -1;
 	
@@ -332,7 +331,6 @@ fork_pages(struct proc *parent, struct proc *child)
     	// coping the swap file
 			if (parent->pages[i].state == SWAPPED_OUT)
 			{
-    
 				if (readFromSwapFile(parent, buffer, i * PGSIZE, PGSIZE) < 0 ||
 						writeToSwapFile(child, buffer, i * PGSIZE, PGSIZE) < 0)
 				{
@@ -345,7 +343,6 @@ fork_pages(struct proc *parent, struct proc *child)
   }
 
 	// all is well
-	printf("fork_pages from '%d' to '%d' --- end\n", parent->pid, child->pid);
 	return 0;
 }
 

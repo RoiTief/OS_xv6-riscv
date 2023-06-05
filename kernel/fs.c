@@ -817,6 +817,7 @@ createSwapFile(struct proc* p)
   memset(null_buffer, 0, PGSIZE);
 	for (int i = 0; i < MAX_TOTAL_PAGES; i++)
 		writeToSwapFile(p, null_buffer, i * PGSIZE, PGSIZE);
+	kfree(null_buffer);
 
     return 0;
 }
