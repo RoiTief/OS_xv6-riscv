@@ -52,6 +52,7 @@ randomread(int user_dst, uint64 dst, int n)
     if(either_copyout(user_dst, dst, &random, 1) == -1)
       break;
 
+    dst++;
     --n;
   }
   release(&lock);
