@@ -5,6 +5,7 @@ OBJS = \
   $K/entry.o \
   $K/start.o \
   $K/console.o \
+  $K/random.o \
   $K/printf.o \
   $K/uart.o \
   $K/kalloc.o \
