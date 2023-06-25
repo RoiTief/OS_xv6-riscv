@@ -492,8 +492,8 @@ scheduler(void)
         acquire(&kt->lock);
         if(kt->state == K_RUNNABLE) {
           
-		  c->kthread = kt;
           kt->state = K_RUNNING;
+          c->kthread = kt;
           swtch(&c->context, &kt->context);
           
           c->kthread = 0;
